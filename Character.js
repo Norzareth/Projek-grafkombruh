@@ -42,7 +42,7 @@ const TEETH = {
 const ARM = { upperLength: 1.7, forearmLength: 1.7, handLength: 0.8, shoulderY: 1.3, shoulderZ: 0.15 };
 const LEG = {
     thighLength: 1.7, shinLength: 1.7, ankleLength: 0.3,
-    hipY: -1.55, hipZ: 0.1,                  // posisi pinggul relatif terhadap torso
+    hipY: -1.55, hipZ: 0,                  // posisi pinggul relatif terhadap torso
     footOffsetY: -0.12, footOffsetZ: 0.4     // posisi telapak dari ankle
 };
 // bola penutup sambungan (samakan dengan jari-jari ujung silinder di sambungan itu)

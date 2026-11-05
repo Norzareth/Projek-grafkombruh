@@ -7,19 +7,23 @@ import { Character as Tank } from "./tank/Character.js";   // karakter kedua (ta
 const VERTEX_SHADER = `
     attribute vec3 a_position;
     attribute vec3 a_normal;
+    attribute vec3 a_vertexColor;
     uniform mat4 u_projection;
     uniform mat4 u_view;
     uniform mat4 u_model;
     varying vec3 v_normal;
+    varying vec3 v_vertexColor;
     void main(void) {
         gl_Position = u_projection * u_view * u_model * vec4(a_position, 1.0);
         v_normal = mat3(u_view * u_model) * a_normal;
+        v_vertexColor = a_vertexColor;
     }
 `;
 
 const FRAGMENT_SHADER = `
     precision mediump float;
     varying vec3 v_normal;
+    varying vec3 v_vertexColor;
     uniform vec3 u_color;
     uniform float u_hatch;      // 1 = beri arsiran, 0 = polos
 
@@ -35,7 +39,7 @@ const FRAGMENT_SHADER = `
         float rim = 1.0 - abs(normal.z);
         float shade = 0.35 + 0.75 * diffuse - 0.25 * rim * rim;
         shade *= backFaceDarkness;
-        vec3 color = u_color * shade;
+        vec3 color = u_color * v_vertexColor * shade;
 
         if (u_hatch > 0.5) {
             vec2 pixel = gl_FragCoord.xy;
@@ -82,12 +86,14 @@ function main() {
     const locations = {                  // alamat atribut & uniform di shader
         position: GL.getAttribLocation(SHADER_PROGRAM, "a_position"),
         normal:   GL.getAttribLocation(SHADER_PROGRAM, "a_normal"),
+        vertexColor: GL.getAttribLocation(SHADER_PROGRAM, "a_vertexColor"),
         model:    GL.getUniformLocation(SHADER_PROGRAM, "u_model"),
         color:    GL.getUniformLocation(SHADER_PROGRAM, "u_color"),
         hatching: GL.getUniformLocation(SHADER_PROGRAM, "u_hatch")
     };
     GL.enableVertexAttribArray(locations.position);
     GL.enableVertexAttribArray(locations.normal);
+    GL.enableVertexAttribArray(locations.vertexColor);
 
     // proyeksi perspektif
     const _Pmatrix = GL.getUniformLocation(SHADER_PROGRAM, "u_projection");
@@ -101,23 +107,55 @@ function main() {
     GL.enable(GL.DEPTH_TEST);
     GL.viewport(0, 0, CANVAS.width, CANVAS.height);
 
-    /*===== KAMERA & MOUSE (drag = putar, scroll = zoom) =====*/
-    let rotationX = 0.1, rotationY = -0.55, distance = 15;
-    const DISTANCE_MIN = 8, DISTANCE_MAX = 900;     // jauhkan kamera (scroll) untuk melihat seluruh maze
-    let dragging = false, lastX = 0, lastY = 0;
+    /*===== FREECAM (click to capture mouse; Esc to release) =====*/
+    const camera = { x: 0, y: 3, z: 18, yaw: 0, pitch: -0.12 };
+    const pressedKeys = new Set();
+    let moveSpeed = 12;
+    const MOVE_SPEED_MIN = 1;
+    const MOVE_SPEED_MAX = 60;
+    const MOUSE_SENSITIVITY = 0.0025;
+    const PITCH_LIMIT = Math.PI / 2 - 0.01;
+    const controls = document.getElementById("cameraControls");
+    const updateControls = () => {
+        const cameraHint = document.pointerLockElement === CANVAS
+            ? "WASD move  |  Space rise  |  Shift descend  |  Esc release mouse"
+            : "Click to control camera  |  WASD move  |  Space rise  |  Shift descend";
+        controls.textContent = `${cameraHint}  |  Wheel speed: ${moveSpeed.toFixed(1)}`;
+    };
+    updateControls();
 
-    CANVAS.onmousedown = e => { dragging = true; lastX = e.clientX; lastY = e.clientY; };
-    window.onmouseup = () => { dragging = false; };
-    CANVAS.onmousemove = e => {
-        if (!dragging) return;
-        rotationY += (e.clientX - lastX) * 0.01;
-        rotationX += (e.clientY - lastY) * 0.01;
-        lastX = e.clientX; lastY = e.clientY;
-    };
-    CANVAS.onwheel = e => {
-        distance = Math.min(DISTANCE_MAX, Math.max(DISTANCE_MIN, distance + e.deltaY * 0.01));
-        e.preventDefault();
-    };
+    CANVAS.addEventListener("click", () => {
+        if (document.pointerLockElement !== CANVAS) CANVAS.requestPointerLock();
+    });
+    document.addEventListener("pointerlockchange", () => {
+        pressedKeys.clear();
+        updateControls();
+    });
+    document.addEventListener("mousemove", event => {
+        if (document.pointerLockElement !== CANVAS) return;
+        camera.yaw -= event.movementX * MOUSE_SENSITIVITY;
+        camera.pitch = Math.max(
+            -PITCH_LIMIT,
+            Math.min(PITCH_LIMIT, camera.pitch - event.movementY * MOUSE_SENSITIVITY)
+        );
+    });
+    document.addEventListener("wheel", event => {
+        if (document.pointerLockElement !== CANVAS) return;
+        event.preventDefault();
+        const delta = event.deltaY * (event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16
+            : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? CANVAS.clientHeight : 1);
+        moveSpeed = Math.max(MOVE_SPEED_MIN, Math.min(MOVE_SPEED_MAX, moveSpeed - delta * 0.02));
+        updateControls();
+    }, { passive: false });
+    window.addEventListener("keydown", event => {
+        const key = event.key.toLowerCase();
+        if (!["w", "a", "s", "d", " ", "shift"].includes(key)) return;
+        if (document.pointerLockElement !== CANVAS) return;
+        event.preventDefault();
+        pressedKeys.add(key);
+    });
+    window.addEventListener("keyup", event => pressedKeys.delete(event.key.toLowerCase()));
+    window.addEventListener("blur", () => pressedKeys.clear());
     window.onresize = () => {
         CANVAS.width = innerWidth; CANVAS.height = innerHeight;
         GL.viewport(0, 0, CANVAS.width, CANVAS.height);
@@ -141,16 +179,31 @@ function main() {
     LIBS.set_position(tank.POSITION_MATRIX, TANK.x, environment.floorY - TANK.footY * TANK.scale, TANK.z);
 
     const startTime = performance.now();
+    let previousFrameTime = startTime;
     const animate = () => {
+        const now = performance.now();
+        const deltaTime = Math.min((now - previousFrameTime) / 1000, 0.1);
+        previousFrameTime = now;
+
+        const forward = Number(pressedKeys.has("w")) - Number(pressedKeys.has("s"));
+        const strafe = Number(pressedKeys.has("d")) - Number(pressedKeys.has("a"));
+        const moveLength = Math.hypot(forward, strafe) || 1;
+        camera.x += (-Math.sin(camera.yaw) * forward + Math.cos(camera.yaw) * strafe)
+            * moveSpeed * deltaTime / moveLength;
+        camera.z += (-Math.cos(camera.yaw) * forward - Math.sin(camera.yaw) * strafe)
+            * moveSpeed * deltaTime / moveLength;
+        camera.y += (Number(pressedKeys.has(" ")) - Number(pressedKeys.has("shift")))
+            * moveSpeed * deltaTime;
+
         GL.clearColor(1, 1, 1, 1);
         GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT);
 
-        // kamera: urutan pemanggilan = urutan terjadinya (putar Y, putar X, geser mundur)
         const VIEWMATRIX = LIBS.get_I4();
-        LIBS.rotateY(VIEWMATRIX, rotationY);
-        LIBS.rotateX(VIEWMATRIX, rotationX);
-        LIBS.translateY(VIEWMATRIX, 0.5);
-        LIBS.translateZ(VIEWMATRIX, -distance);
+        LIBS.rotateY(VIEWMATRIX, -camera.yaw);
+        LIBS.rotateX(VIEWMATRIX, -camera.pitch);
+        VIEWMATRIX[12] = -(VIEWMATRIX[0] * camera.x + VIEWMATRIX[4] * camera.y + VIEWMATRIX[8] * camera.z);
+        VIEWMATRIX[13] = -(VIEWMATRIX[1] * camera.x + VIEWMATRIX[5] * camera.y + VIEWMATRIX[9] * camera.z);
+        VIEWMATRIX[14] = -(VIEWMATRIX[2] * camera.x + VIEWMATRIX[6] * camera.y + VIEWMATRIX[10] * camera.z);
         GL.uniformMatrix4fv(_Vmatrix, false, VIEWMATRIX);
 
         character.animasi((performance.now() - startTime) / 1000);   // detik

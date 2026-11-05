@@ -4,8 +4,11 @@
     <meta charset="UTF-8">
     <title>Tugas WebGL Karakter</title>
 </head>
-<body style="margin: 0; overflow: hidden;">
+<body style="margin: 0; overflow: hidden; font-family: sans-serif;">
     <canvas id="myCanvas" style="display: block; width: 100vw; height: 100vh; background-color: #ffffff;"></canvas>
+    <div id="cameraControls" style="position: fixed; left: 12px; bottom: 12px; padding: 8px 12px; color: #fff; background: rgba(0, 0, 0, 0.65); font-size: 13px; pointer-events: none;">
+        Click to control camera  |  WASD move  |  Space rise  |  Shift descend
+    </div>
 
     <!-- libs.js (LIBS) dimuat dulu, lalu main.js sebagai module. Buka lewat server lokal (Live Server). -->
     <script src="libs.js"></script>

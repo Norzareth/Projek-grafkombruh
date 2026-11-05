@@ -14,12 +14,14 @@ export class MyObject {
     // bentuk: vertex & normal = x,y,z per titik; faces = indeks segitiga
     vertex = [];
     normals = [];
+    vertexColors = [];
     faces = [];
     brightness = 0.8;                 // kecerahan abu-abu (0..1)
     color = null;                     // [r, g, b] bila bagian ini berwarna (mengganti abu-abu)
     hatching = 1;                     // 1 = beri arsiran, 0 = polos
 
     OBJECT_VERTEX = null;
+    OBJECT_COLOR = null;
     OBJECT_FACES = null;
 
     POSITION_MATRIX = LIBS.get_I4();
@@ -45,6 +47,18 @@ export class MyObject {
         this.GL.bindBuffer(this.GL.ARRAY_BUFFER, this.OBJECT_VERTEX);
         this.GL.bufferData(this.GL.ARRAY_BUFFER, new Float32Array(data), this.GL.STATIC_DRAW);
 
+        const colors = [];
+        for (let i = 0; i < this.vertex.length; i += 3) {
+            colors.push(
+                this.vertexColors[i] ?? 1,
+                this.vertexColors[i + 1] ?? 1,
+                this.vertexColors[i + 2] ?? 1
+            );
+        }
+        this.OBJECT_COLOR = this.GL.createBuffer();
+        this.GL.bindBuffer(this.GL.ARRAY_BUFFER, this.OBJECT_COLOR);
+        this.GL.bufferData(this.GL.ARRAY_BUFFER, new Float32Array(colors), this.GL.STATIC_DRAW);
+
         this.OBJECT_FACES = this.GL.createBuffer();
         this.GL.bindBuffer(this.GL.ELEMENT_ARRAY_BUFFER, this.OBJECT_FACES);
         this.GL.bufferData(this.GL.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.faces), this.GL.STATIC_DRAW);
@@ -66,6 +80,9 @@ export class MyObject {
             this.GL.bindBuffer(this.GL.ARRAY_BUFFER, this.OBJECT_VERTEX);
             this.GL.vertexAttribPointer(this.locations.position, 3, this.GL.FLOAT, false, 24, 0);    // 6 angka x 4 byte
             this.GL.vertexAttribPointer(this.locations.normal, 3, this.GL.FLOAT, false, 24, 12);
+
+            this.GL.bindBuffer(this.GL.ARRAY_BUFFER, this.OBJECT_COLOR);
+            this.GL.vertexAttribPointer(this.locations.vertexColor, 3, this.GL.FLOAT, false, 0, 0);
 
             this.GL.bindBuffer(this.GL.ELEMENT_ARRAY_BUFFER, this.OBJECT_FACES);
             this.GL.drawElements(this.GL.TRIANGLES, this.faces.length, this.GL.UNSIGNED_SHORT, 0);
