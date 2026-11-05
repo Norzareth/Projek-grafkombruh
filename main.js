@@ -114,13 +114,18 @@ function main() {
     const MOVE_SPEED_MIN = 1;
     const MOVE_SPEED_MAX = 60;
     const MOUSE_SENSITIVITY = 0.0025;
+    let lookSensitivity = 1;
+    const LOOK_SENSITIVITY_STEP = 0.1;
+    const LOOK_SENSITIVITY_MIN = 0.2;
+    const LOOK_SENSITIVITY_MAX = 4;
     const PITCH_LIMIT = Math.PI / 2 - 0.01;
     const controls = document.getElementById("cameraControls");
     const updateControls = () => {
         const cameraHint = document.pointerLockElement === CANVAS
             ? "WASD move  |  Space rise  |  Shift descend  |  Esc release mouse"
             : "Click to control camera  |  WASD move  |  Space rise  |  Shift descend";
-        controls.textContent = `${cameraHint}  |  Wheel speed: ${moveSpeed.toFixed(1)}`;
+        controls.textContent = `${cameraHint}  |  Wheel speed: ${moveSpeed.toFixed(1)}`
+            + `  |  -/= look sensitivity: ${lookSensitivity.toFixed(1)}x`;
     };
     updateControls();
 
@@ -133,10 +138,10 @@ function main() {
     });
     document.addEventListener("mousemove", event => {
         if (document.pointerLockElement !== CANVAS) return;
-        camera.yaw -= event.movementX * MOUSE_SENSITIVITY;
+        camera.yaw -= event.movementX * MOUSE_SENSITIVITY * lookSensitivity;
         camera.pitch = Math.max(
             -PITCH_LIMIT,
-            Math.min(PITCH_LIMIT, camera.pitch - event.movementY * MOUSE_SENSITIVITY)
+            Math.min(PITCH_LIMIT, camera.pitch - event.movementY * MOUSE_SENSITIVITY * lookSensitivity)
         );
     });
     document.addEventListener("wheel", event => {
@@ -149,8 +154,24 @@ function main() {
     }, { passive: false });
     window.addEventListener("keydown", event => {
         const key = event.key.toLowerCase();
-        if (!["w", "a", "s", "d", " ", "shift"].includes(key)) return;
         if (document.pointerLockElement !== CANVAS) return;
+        if (event.code === "Minus" || key === "-") {
+            if (!event.repeat) {
+                lookSensitivity = Math.max(LOOK_SENSITIVITY_MIN, lookSensitivity - LOOK_SENSITIVITY_STEP);
+                updateControls();
+            }
+            event.preventDefault();
+            return;
+        }
+        if (event.code === "Equal" || key === "=") {
+            if (!event.repeat) {
+                lookSensitivity = Math.min(LOOK_SENSITIVITY_MAX, lookSensitivity + LOOK_SENSITIVITY_STEP);
+                updateControls();
+            }
+            event.preventDefault();
+            return;
+        }
+        if (!["w", "a", "s", "d", " ", "shift"].includes(key)) return;
         event.preventDefault();
         pressedKeys.add(key);
     });

@@ -15,4 +15,5 @@ Click the canvas to capture the mouse and look around. Use `W`, `A`, `S`, and
 `D` to move, `Space` to rise, and `Shift` to descend. Press `Esc` to release
 the mouse.
 Scroll the mouse wheel while the mouse is captured to adjust the speed of all
-movement controls.
+movement controls. Press `-` to decrease mouse-look sensitivity or `=` to
+increase it.
