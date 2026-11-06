@@ -1,13 +1,27 @@
 # Projek-grafkombruh
 
+## Struktur folder
+
+- `Mouthe/Character.js` : karakter pertama (Mouthe)
+- `Gundog/Character.js` : karakter kedua (Gundog)
+- `MyObject.js`, `Shapes.js` : kelas dan pembuat bentuk yang dipakai bersama
+- `environment.js` : maze dan lantai
+
 ## Maze layout
 
-Edit `MAZE_POINTS` in `environment.js` to define the maze wall outline. Enter
-coordinates as `[x, z]` pairs in world units; every point connects to the next,
-and the final point connects back to the first. The floor is a worn rectangular
-slab with subtle, seeded uneven patches and cracks. Adjust `TERRAIN` in
-`environment.js` to change the terrain grid, relief, or crack count. Adjust
-`WALL.height` and `WALL.thickness` independently to change the wall dimensions.
+Maze berisi 7 ruangan (R1 awal; R2, R3 dari pertigaan pertama; R4-R7 dari pertigaan
+kedua dan ketiga). Atur ukurannya di `MAZE_LAYOUT` pada `environment.js` (satuan dunia):
+
+- ruangan `{ width, depth }`  : lebar (sumbu X) dan panjang (sumbu Z)
+- hallway `{ length, width }` : panjang searah jalan dan lebar jalan
+- pertigaan `{ width, toRx, toRy }` : lebar jalan melintang dan jarak dari sumbu hallway
+  ke dinding terdekat ruangan tujuan
+
+Posisi semua bagian dihitung otomatis. Jika ukuran tidak muat atau bertabrakan,
+halaman menampilkan pesan error yang menyebut bagian mana yang bermasalah.
+Lantai memakai permukaan tidak rata dengan retakan; atur lewat `TERRAIN`
+(`step`, `patchDensity`, `maxRelief`, `crackDensity`). Atur tinggi dan tebal dinding
+lewat `WALL.height` dan `WALL.thickness`.
 
 ## Camera controls
 

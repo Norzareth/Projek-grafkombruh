@@ -1,7 +1,7 @@
-// main.js : setup WebGL, kamera, mouse, dan loop render. Karakter dibuat di Character.js
-import { Character } from "./Character.js";
+// main.js : setup WebGL, kamera, mouse, dan loop render. Karakter dibuat di Mouthe/ dan Gundog/
+import { Character as Mouthe } from "./Mouthe/Character.js";   // karakter pertama (Mouthe)
 import { Environment } from "./environment.js";
-import { Character as Tank } from "./tank/Character.js";   // karakter kedua (tank)
+import { Character as Gundog } from "./Gundog/Character.js";   // karakter kedua (Gundog)
 
 // ===== SHADER (cahaya sederhana + arsiran abu-abu) =====
 const VERTEX_SHADER = `
@@ -55,11 +55,11 @@ const FRAGMENT_SHADER = `
     }
 `;
 
-// ===== LETAK TANK di dalam maze (satuan dunia) =====
-const TANK = {
+// ===== LETAK GUNDOG di dalam maze (satuan dunia) =====
+const GUNDOG = {
     x: 11, z: 6,               // posisi di ruang awal (karakter pertama ada di 0, 0)
-    scale: 3,                  // tank asli kecil (~2 satuan), diperbesar agar sepadan
-    footY: -1.43,              // tinggi telapak kaki tank pada ukuran aslinya (ditaruh tepat di lantai)
+    scale: 3,                  // gundog asli kecil (~2 satuan), diperbesar agar sepadan
+    footY: -1.43,              // tinggi telapak kaki gundog pada ukuran aslinya (ditaruh tepat di lantai)
     faceCharacter: true        // true = moncong menghadap karakter pertama
 };
 
@@ -183,21 +183,43 @@ function main() {
     };
 
     /*===== KARAKTER =====*/
-    const character = new Character(GL, SHADER_PROGRAM, locations);
-    character.setup();                   // kirim semua bagian ke GPU (rekursif lewat childs)
+    const mouthe = new Mouthe(GL, SHADER_PROGRAM, locations);
+    mouthe.setup();                   // kirim semua bagian ke GPU (rekursif lewat childs)
 
     const environment = new Environment(GL, SHADER_PROGRAM, locations);   // maze (environment.js)
     environment.setup();
 
-    // tank: memakai shader, kamera, dan arsiran yang sama dengan karakter pertama & maze
-    const tank = new Tank(GL, SHADER_PROGRAM, locations);
-    tank.setup();
-    // letak tank: skala -> putar -> geser (urutan ini penting karena LIBS.scale hanya mengisi diagonal)
-    LIBS.scaleX(tank.POSITION_MATRIX, TANK.scale);
-    LIBS.scaleY(tank.POSITION_MATRIX, TANK.scale);
-    LIBS.scaleZ(tank.POSITION_MATRIX, TANK.scale);
-    if (TANK.faceCharacter) LIBS.rotateY(tank.POSITION_MATRIX, Math.atan2(TANK.x, TANK.z));   // moncong tank ke -z lokal
-    LIBS.set_position(tank.POSITION_MATRIX, TANK.x, environment.floorY - TANK.footY * TANK.scale, TANK.z);
+    // gundog: memakai shader, kamera, dan arsiran yang sama dengan karakter pertama & maze
+    const gundog = new Gundog(GL, SHADER_PROGRAM, locations);
+    gundog.setup();
+    // letak gundog: skala -> putar -> geser (urutan ini penting karena LIBS.scale hanya mengisi diagonal)
+    LIBS.scaleX(gundog.POSITION_MATRIX, GUNDOG.scale);
+    LIBS.scaleY(gundog.POSITION_MATRIX, GUNDOG.scale);
+    LIBS.scaleZ(gundog.POSITION_MATRIX, GUNDOG.scale);
+    if (GUNDOG.faceCharacter) LIBS.rotateY(gundog.POSITION_MATRIX, Math.atan2(GUNDOG.x, GUNDOG.z));   // moncong gundog ke -z lokal
+    LIBS.set_position(gundog.POSITION_MATRIX, GUNDOG.x, environment.floorY - GUNDOG.footY * GUNDOG.scale, GUNDOG.z);
+
+    /*===== TOGGLE ANIMASI: satu per karakter, saling terpisah =====
+       Tombol [1] atau kotak centang "Mouthe"  -> hanya menyalakan/mematikan animasi Mouthe (karakter pertama)
+       Tombol [2] atau kotak centang "Gundog"  -> hanya menyalakan/mematikan animasi Gundog (karakter kedua)
+       Nilai awalnya ada di ANIMATION_ON_AT_START di Mouthe/Character.js dan Gundog/Character.js. */
+    const animationToggles = [
+        { key: "1", character: mouthe, checkbox: document.getElementById("toggleMouthe") },
+        { key: "2", character: gundog, checkbox: document.getElementById("toggleGundog") }
+    ];
+    animationToggles.forEach(toggle => {
+        toggle.checkbox.checked = toggle.character.animationOn;
+        toggle.checkbox.addEventListener("change", () => {
+            toggle.character.animationOn = toggle.checkbox.checked;
+            toggle.checkbox.blur();                       // agar tombol Space (naik) tidak ikut menekan kotak ini
+        });
+    });
+    window.addEventListener("keydown", event => {            // bekerja juga saat mouse terkunci (kamera aktif)
+        const toggle = animationToggles.find(item => item.key === event.key);
+        if (!toggle || event.repeat) return;
+        toggle.checkbox.checked = !toggle.checkbox.checked;
+        toggle.character.animationOn = toggle.checkbox.checked;
+    });
 
     const startTime = performance.now();
     let previousFrameTime = startTime;
@@ -227,13 +249,13 @@ function main() {
         VIEWMATRIX[14] = -(VIEWMATRIX[2] * camera.x + VIEWMATRIX[6] * camera.y + VIEWMATRIX[10] * camera.z);
         GL.uniformMatrix4fv(_Vmatrix, false, VIEWMATRIX);
 
-        character.animasi((performance.now() - startTime) / 1000);   // detik
-        character.render(LIBS.get_I4());                              // akar dipanggil dengan matriks identitas
+        mouthe.animasi((performance.now() - startTime) / 1000);   // detik
+        mouthe.render(LIBS.get_I4());                              // akar dipanggil dengan matriks identitas
         environment.render(LIBS.get_I4());
 
-        // tank (shader & kamera sama)
-        tank.animasi(performance.now());                              // tank memakai milidetik
-        tank.render(LIBS.get_I4());
+        // gundog (shader & kamera sama)
+        gundog.animasi(performance.now());                              // gundog memakai milidetik
+        gundog.render(LIBS.get_I4());
 
         window.requestAnimationFrame(animate);
     };

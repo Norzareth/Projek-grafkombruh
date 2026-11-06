@@ -10,6 +10,17 @@
         Click to control camera  |  WASD move  |  Space rise  |  Shift descend
     </div>
 
+    <div id="animationToggles" style="position: fixed; right: 12px; top: 12px; max-width: 330px; padding: 10px 14px; color: #fff; background: rgba(0, 0, 0, 0.65); font-size: 13px; line-height: 1.5;">
+        <div style="font-weight: bold; margin-bottom: 6px;">Animasi</div>
+        <label style="display: block; cursor: pointer; margin-bottom: 6px;">
+            <input type="checkbox" id="toggleMouthe"> <b>[1] Mouthe</b>
+        </label>
+        <label style="display: block; cursor: pointer;">
+            <input type="checkbox" id="toggleGundog"> <b>[2] Gundog</b>
+        </label>
+        <div style="color: #bbb; font-size: 12px; margin-top: 6px;">Saat kamera aktif (mouse terkunci), tekan 1 atau 2 di keyboard.</div>
+    </div>
+
     <!-- libs.js (LIBS) dimuat dulu, lalu main.js sebagai module. Buka lewat server lokal (Live Server). -->
     <script src="libs.js"></script>
     <script type="module" src="main.js"></script>
