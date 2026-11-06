@@ -209,11 +209,24 @@ function main() {
     // proyeksi perspektif
     const _Pmatrix = GL.getUniformLocation(SHADER_PROGRAM, "u_projection");
     const _Vmatrix = GL.getUniformLocation(SHADER_PROGRAM, "u_view");
-    const fovY = Math.PI / 4, near = 0.1, far = 2000.0;
-    const f = 1 / Math.tan(fovY / 2), nf = 1 / (near - far);
-    const PROJMATRIX = new Float32Array([
-        f / (CANVAS.width / CANVAS.height), 0, 0, 0,   0, f, 0, 0,   0, 0, (far + near) * nf, -1,   0, 0, 2 * far * near * nf, 0]);
-    GL.uniformMatrix4fv(_Pmatrix, false, PROJMATRIX);
+    const near = 0.1, far = 2000.0;
+    const fovSlider = document.getElementById("fovSlider");
+    const fovValue = document.getElementById("fovValue");
+    let fovY = Number(fovSlider.value) * Math.PI / 180;
+    const updateProjection = () => {
+        fovY = Number(fovSlider.value) * Math.PI / 180;
+        const f = 1 / Math.tan(fovY / 2), nf = 1 / (near - far);
+        const projection = new Float32Array([
+            f / (CANVAS.width / CANVAS.height), 0, 0, 0,
+            0, f, 0, 0,
+            0, 0, (far + near) * nf, -1,
+            0, 0, 2 * far * near * nf, 0
+        ]);
+        GL.uniformMatrix4fv(_Pmatrix, false, projection);
+        fovValue.textContent = `${fovSlider.value}°`;
+    };
+    fovSlider.addEventListener("input", updateProjection);
+    updateProjection();
 
     GL.enable(GL.DEPTH_TEST);
     GL.viewport(0, 0, CANVAS.width, CANVAS.height);
@@ -223,7 +236,7 @@ function main() {
     const pressedKeys = new Set();
     let moveSpeed = 12;
     const MOVE_SPEED_MIN = 1;
-    const MOVE_SPEED_MAX = 100;
+    const MOVE_SPEED_MAX = 1000;
     const MOUSE_SENSITIVITY = 0.0025;
     let lookSensitivity = 1;
     const LOOK_SENSITIVITY_STEP = 0.1;
@@ -231,10 +244,15 @@ function main() {
     const LOOK_SENSITIVITY_MAX = 4;
     const PITCH_LIMIT = Math.PI / 2 - 0.01;
     const controls = document.getElementById("cameraControls");
+    window.addEventListener("keydown", event => {
+        if (event.key.toLowerCase() !== "e" || event.repeat) return;
+        document.body.classList.toggle("ui-hidden");
+        event.preventDefault();
+    });
     const updateControls = () => {
         const cameraHint = document.pointerLockElement === CANVAS
-            ? "WASD move  |  Space rise  |  Shift descend  |  Esc release mouse"
-            : "Click to control camera  |  WASD move  |  Space rise  |  Shift descend";
+            ? "WASD move  |  Space rise  |  Shift descend  |  E UI  |  Esc release mouse"
+            : "Click to control camera  |  WASD move  |  Space rise  |  Shift descend  |  E UI";
         controls.textContent = `${cameraHint}  |  Wheel speed: ${moveSpeed.toFixed(1)}`
             + `  |  -/= look sensitivity: ${lookSensitivity.toFixed(1)}x`;
     };
@@ -291,6 +309,7 @@ function main() {
     window.onresize = () => {
         CANVAS.width = innerWidth; CANVAS.height = innerHeight;
         GL.viewport(0, 0, CANVAS.width, CANVAS.height);
+        updateProjection();
     };
 
 /*===== KARAKTER =====*/
@@ -314,6 +333,18 @@ function main() {
 
     const environment = new Environment(GL, SHADER_PROGRAM, locations);   // maze (environment.js)
     environment.setup();
+    const roofToggle = document.getElementById("toggleRoof");
+    roofToggle.checked = environment.roof.visible;
+    roofToggle.addEventListener("change", () => {
+        environment.roof.visible = roofToggle.checked;
+        roofToggle.blur();
+    });
+    window.addEventListener("keydown", event => {
+        if (event.key !== "7" || event.repeat) return;
+        roofToggle.checked = !roofToggle.checked;
+        environment.roof.visible = roofToggle.checked;
+        event.preventDefault();
+    });
 
 
     //

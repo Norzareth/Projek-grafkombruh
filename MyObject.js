@@ -19,6 +19,7 @@ export class MyObject {
     brightness = 0.8;                 // kecerahan abu-abu (0..1)
     color = null;                     // [r, g, b] bila bagian ini berwarna (mengganti abu-abu)
     hatching = 1;                     // 1 = beri arsiran, 0 = polos
+    visible = true;
 
     OBJECT_VERTEX = null;
     OBJECT_COLOR = null;
@@ -67,6 +68,8 @@ export class MyObject {
     }
 
     render(PARENT_MATRIX) {
+        if (!this.visible) return;
+
         this.MODEL_MATRIX = LIBS.multiply(this.MOVE_MATRIX, this.POSITION_MATRIX);
         this.MODEL_MATRIX = LIBS.multiply(this.MODEL_MATRIX, PARENT_MATRIX);
 

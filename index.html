@@ -3,14 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <title>Tugas WebGL Karakter</title>
+    <style>
+        body.ui-hidden .ui-panel {
+            display: none !important;
+        }
+    </style>
 </head>
 <body style="margin: 0; overflow: hidden; font-family: sans-serif;">
     <canvas id="myCanvas" style="display: block; width: 100vw; height: 100vh; background-color: #ffffff;"></canvas>
-    <div id="cameraControls" style="position: fixed; left: 12px; bottom: 12px; padding: 8px 12px; color: #fff; background: rgba(0, 0, 0, 0.65); font-size: 13px; pointer-events: none;">
+    <div id="cameraControls" class="ui-panel" style="position: fixed; left: 12px; bottom: 12px; padding: 8px 12px; color: #fff; background: rgba(0, 0, 0, 0.65); font-size: 13px; pointer-events: none;">
         Click to control camera  |  WASD move  |  Space rise  |  Shift descend
     </div>
+    <label for="fovSlider" class="ui-panel" style="position: fixed; left: 12px; bottom: 48px; display: flex; align-items: center; gap: 8px; padding: 8px 12px; color: #fff; background: rgba(0, 0, 0, 0.65); font-size: 13px;">
+        FOV <input id="fovSlider" type="range" min="10" max="160" step="1" value="45" style="width: 150px;">
+        <span id="fovValue">45°</span>
+    </label>
 
-    <div id="animationToggles" style="position: fixed; right: 12px; top: 12px; max-width: 330px; padding: 10px 14px; color: #fff; background: rgba(0, 0, 0, 0.65); font-size: 13px; line-height: 1.5;">
+    <div id="animationToggles" class="ui-panel" style="position: fixed; right: 12px; top: 12px; max-width: 330px; padding: 10px 14px; color: #fff; background: rgba(0, 0, 0, 0.65); font-size: 13px; line-height: 1.5;">
         <div style="font-weight: bold; margin-bottom: 6px;">Animasi</div>
         <label style="display: block; cursor: pointer; margin-bottom: 6px;">
             <input type="checkbox" id="toggleMouthe"> <b>[1] Mouthe</b>
@@ -24,7 +33,7 @@
         <div style="color: #bbb; font-size: 12px; margin-top: 6px;">Saat kamera aktif (mouse terkunci), tekan 1, 2, atau 3 di keyboard.</div>
     </div>
 
-    <div id="movementToggles" style="position: fixed; right: 12px; top: 185px; max-width: 330px; padding: 10px 14px; color: #fff; background: rgba(0, 0, 0, 0.65); font-size: 13px; line-height: 1.5;">
+    <div id="movementToggles" class="ui-panel" style="position: fixed; right: 12px; top: 185px; max-width: 330px; padding: 10px 14px; color: #fff; background: rgba(0, 0, 0, 0.65); font-size: 13px; line-height: 1.5;">
         <div style="font-weight: bold; margin-bottom: 6px;">Gerak maju</div>
         <label style="display: block; cursor: pointer; margin-bottom: 6px;">
             <input type="checkbox" id="moveMouthe"> <b>[4] Mouthe</b>
@@ -36,6 +45,9 @@
             <input type="checkbox" id="moveKnifo"> <b>[6] Knifo</b>
         </label>
         <div style="color: #bbb; font-size: 12px; margin-top: 6px;">Toggle gerak terpisah dari toggle animasi.</div>
+        <label style="display: block; cursor: pointer; margin-top: 8px;">
+            <input type="checkbox" id="toggleRoof"> <b>[7] Roof</b>
+        </label>
     </div>
 
     <!-- libs.js (LIBS) dimuat dulu, lalu main.js sebagai module. Buka lewat server lokal (Live Server). -->

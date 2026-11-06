@@ -345,6 +345,40 @@ function createTerrain(rects) {
     return { surfaces, crackVertices, crackIndices };
 }
 
+function createRoofSurface(rect) {
+    const vertices = [], normals = [], indices = [];
+    const xs = sampleAxis(rect.x0, rect.x1, 2);
+    const zs = sampleAxis(rect.z0, rect.z1, 2);
+    const maxTileSamples = TERRAIN.maxTileSamples;
+
+    for (let rowStart = 0; rowStart < zs.length - 1; rowStart += maxTileSamples) {
+        const rowEnd = Math.min(rowStart + maxTileSamples, zs.length - 1);
+        for (let columnStart = 0; columnStart < xs.length - 1; columnStart += maxTileSamples) {
+            const columnEnd = Math.min(columnStart + maxTileSamples, xs.length - 1);
+            const faceStart = vertices.length / 3;
+
+            for (let row = rowStart; row <= rowEnd; row++) {
+                for (let column = columnStart; column <= columnEnd; column++) {
+                    vertices.push(xs[column], 0, zs[row]);
+                    normals.push(0, -1, 0);
+                }
+            }
+
+            const columns = columnEnd - columnStart + 1;
+            const rows = rowEnd - rowStart + 1;
+            for (let row = 0; row < rows - 1; row++) {
+                for (let column = 0; column < columns - 1; column++) {
+                    const a = faceStart + row * columns + column;
+                    const b = a + 1, c = a + columns, d = c + 1;
+                    indices.push(a, b, c, b, d, c);
+                }
+            }
+        }
+    }
+
+    return { vertices, normals, indices };
+}
+
 function createDimpledWall(width, height, depth, x, z) {
     const vertices = [], normals = [], vertexColors = [], indices = [];
     const extents = { x: width, y: height, z: depth };
@@ -500,6 +534,22 @@ export class Environment extends MyObject {
         cracks.hatching = 2;
         LIBS.set_position(cracks.POSITION_MATRIX, 0, FLOOR_Y, 0);
         this.childs.push(cracks);
+
+        this.roof = new MyObject(this.GL, this.SHADER_PROGRAM, this.locations);
+        this.roof.visible = false;
+        const roofY = FLOOR_Y + WALL.height - 0.1;
+        rects.forEach(rect => {
+            const surface = createRoofSurface(rect);
+            const roofSection = new MyObject(this.GL, this.SHADER_PROGRAM, this.locations);
+            roofSection.vertex = surface.vertices;
+            roofSection.normals = surface.normals;
+            roofSection.faces = surface.indices;
+            roofSection.brightness = BRIGHTNESS.floor;
+            roofSection.hatching = 2;
+            LIBS.set_position(roofSection.POSITION_MATRIX, 0, roofY, 0);
+            this.roof.childs.push(roofSection);
+        });
+        this.childs.push(this.roof);
 
         // dinding
         planWalls(rects).forEach(wall => {
