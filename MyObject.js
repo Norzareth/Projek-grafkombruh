@@ -20,6 +20,7 @@ export class MyObject {
     color = null;                     // [r, g, b] bila bagian ini berwarna (mengganti abu-abu)
     hatching = 1;                     // 1 = beri arsiran, 0 = polos
     visible = true;
+    transparent = false;
 
     OBJECT_VERTEX = null;
     OBJECT_COLOR = null;
@@ -74,6 +75,11 @@ export class MyObject {
         this.MODEL_MATRIX = LIBS.multiply(this.MODEL_MATRIX, PARENT_MATRIX);
 
         if (this.faces.length > 0) {  // objek kosong (akar) hanya meneruskan transformasi
+            if (this.transparent) {
+                this.GL.enable(this.GL.BLEND);
+                this.GL.blendFunc(this.GL.SRC_ALPHA, this.GL.ONE_MINUS_SRC_ALPHA);
+                this.GL.depthMask(false);
+            }
             this.GL.useProgram(this.SHADER_PROGRAM);
             this.GL.uniformMatrix4fv(this.locations.model, false, this.MODEL_MATRIX);
             const [r, g, b] = this.color || [this.brightness, this.brightness, this.brightness];
@@ -89,6 +95,10 @@ export class MyObject {
 
             this.GL.bindBuffer(this.GL.ELEMENT_ARRAY_BUFFER, this.OBJECT_FACES);
             this.GL.drawElements(this.GL.TRIANGLES, this.faces.length, this.GL.UNSIGNED_SHORT, 0);
+            if (this.transparent) {
+                this.GL.depthMask(true);
+                this.GL.disable(this.GL.BLEND);
+            }
         }
 
         this.childs.forEach(child => child.render(this.MODEL_MATRIX));

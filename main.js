@@ -34,6 +34,10 @@ const FRAGMENT_SHADER = `
     varying vec3 v_worldNormal;
     uniform vec3 u_color;
     uniform float u_hatch;      // material: 2 lantai, 3 dinding, 4 rangka pilar
+    uniform vec3 u_redLightPosition;
+    uniform vec3 u_redLightDirection;
+    uniform float u_redLightEnabled;
+    uniform float u_redLightRange;
 
     float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 
@@ -59,6 +63,21 @@ const FRAGMENT_SHADER = `
         float shade = 0.35 + 0.75 * diffuse - 0.25 * rim * rim;
         shade *= backFaceDarkness;
         vec3 color = u_color * v_vertexColor * shade;
+
+        if (u_hatch > 4.5) {
+            float beamPulse = 0.9 + 0.1 * sin(v_worldPosition.z * 2.0);
+            gl_FragColor = vec4(vec3(1.0, 0.015, 0.01) * beamPulse, 0.2);
+            return;
+        }
+
+        vec3 fromLight = v_worldPosition - u_redLightPosition;
+        float lightDistance = length(fromLight);
+        vec3 lightRay = fromLight / max(lightDistance, 0.0001);
+        float cone = smoothstep(0.82, 0.96, dot(normalize(u_redLightDirection), lightRay));
+        float reach = 1.0 - smoothstep(u_redLightRange * 0.65, u_redLightRange, lightDistance);
+        vec3 worldNormal = normalize(v_worldNormal) * (gl_FrontFacing ? 1.0 : -1.0);
+        float redIllumination = max(dot(worldNormal, -lightRay), 0.0) * cone * reach * u_redLightEnabled;
+        color += vec3(1.0, 0.015, 0.01) * redIllumination * 2.0;
 
         if (u_hatch > 1.5 && u_hatch < 2.5) {
             vec2 surface = v_worldPosition.xz * 0.42;
@@ -260,11 +279,19 @@ function main() {
         vertexColor: GL.getAttribLocation(SHADER_PROGRAM, "a_vertexColor"),
         model:    GL.getUniformLocation(SHADER_PROGRAM, "u_model"),
         color:    GL.getUniformLocation(SHADER_PROGRAM, "u_color"),
-        hatching: GL.getUniformLocation(SHADER_PROGRAM, "u_hatch")
+        hatching: GL.getUniformLocation(SHADER_PROGRAM, "u_hatch"),
+        redLightPosition: GL.getUniformLocation(SHADER_PROGRAM, "u_redLightPosition"),
+        redLightDirection: GL.getUniformLocation(SHADER_PROGRAM, "u_redLightDirection"),
+        redLightEnabled: GL.getUniformLocation(SHADER_PROGRAM, "u_redLightEnabled"),
+        redLightRange: GL.getUniformLocation(SHADER_PROGRAM, "u_redLightRange")
     };
     GL.enableVertexAttribArray(locations.position);
     GL.enableVertexAttribArray(locations.normal);
     GL.enableVertexAttribArray(locations.vertexColor);
+    GL.uniform3f(locations.redLightPosition, 0, 0, 0);
+    GL.uniform3f(locations.redLightDirection, 0, 0, -1);
+    GL.uniform1f(locations.redLightEnabled, 0);
+    GL.uniform1f(locations.redLightRange, 48);
 
     // proyeksi perspektif
     const _Pmatrix = GL.getUniformLocation(SHADER_PROGRAM, "u_projection");
@@ -472,6 +499,18 @@ function main() {
         environment.floorY - GUNDOG.footY * CHARACTER_SCALE.gundog,
         GUNDOG.z
     );
+    const lightToggle = document.getElementById("toggleGundogLight");
+    lightToggle.checked = gundog.lightOn;
+    lightToggle.addEventListener("change", () => {
+        gundog.setLightOn(lightToggle.checked);
+        lightToggle.blur();
+    });
+    window.addEventListener("keydown", event => {
+        if (event.key.toLowerCase() !== "l" || event.repeat) return;
+        gundog.setLightOn(!gundog.lightOn);
+        lightToggle.checked = gundog.lightOn;
+        event.preventDefault();
+    });
 
 
     //
@@ -672,13 +711,16 @@ function main() {
         GL.uniformMatrix4fv(_Vmatrix, false, VIEWMATRIX);
 
         const elapsedSeconds = (now - startTime) / 1000;
+        gundog.animasi(now * ANIMATION_SPEED.gundog);                   // gundog memakai milidetik
+        gundog.render(LIBS.get_I4());
+        const barrelLight = gundog.getBarrelLight();
+        GL.uniform3fv(locations.redLightPosition, barrelLight.position);
+        GL.uniform3fv(locations.redLightDirection, barrelLight.direction);
+        GL.uniform1f(locations.redLightEnabled, gundog.lightOn ? 1 : 0);
+
         mouthe.animasi(elapsedSeconds * ANIMATION_SPEED.mouthe);
         mouthe.render(LIBS.get_I4());                              // akar dipanggil dengan matriks identitas
         environment.render(LIBS.get_I4());
-
-        // gundog (shader & kamera sama)
-        gundog.animasi(now * ANIMATION_SPEED.gundog);                   // gundog memakai milidetik
-        gundog.render(LIBS.get_I4());
 
         // knifo memakai waktu dalam detik, seperti Mouthe
         knifo.animasi(elapsedSeconds * ANIMATION_SPEED.knifo);

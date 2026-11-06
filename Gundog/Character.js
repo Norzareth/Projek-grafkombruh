@@ -6,7 +6,9 @@
 //  Character (akar kosong)
 //  `-- body
 //      |-- head --- leftEye, rightEye, mouth (kurva Bezier ":3")
-//      |-- turretRing --- turret (sendi) --- turretBase, turretTop, barrel, muzzle, barrelEnd
+//      |-- turretRing
+//      |-- turretBase (sendi) --- turretBody, turretTop
+//      |                       `-- turretBody --- barrel --- muzzle, barrelEnd, lightBeam
 //      `-- hip (x4) --- upperLeg --- knee --- lowerLeg --- footPivot --- foot
 // ============================================================
 import { MyObject } from "../MyObject.js";
@@ -131,6 +133,25 @@ function createCylinder(radius, height, axis = "y", segments = 12) {
     return createMesh(vertices, faces, true);
 }
 
+function createSpotlightBeam(length, nearRadius, farRadius, segments = 24) {
+    const vertices = [], faces = [];
+    for (let ring = 0; ring < 2; ring++) {
+        const radius = ring === 0 ? nearRadius : farRadius;
+        const z = ring === 0 ? 0 : -length;
+        for (let segment = 0; segment < segments; segment++) {
+            const angle = 2 * Math.PI * segment / segments;
+            vertices.push(radius * Math.cos(angle), radius * Math.sin(angle), z);
+        }
+    }
+    for (let segment = 0; segment < segments; segment++) {
+        const next = (segment + 1) % segments;
+        const far = segment + segments;
+        const farNext = next + segments;
+        faces.push(segment, next, farNext, segment, farNext, far);
+    }
+    return createMesh(vertices, faces, true);
+}
+
 //
 //paraboloid
 // telapak bulat dari tumpukan cincin. Jari-jari mengikuti r(y) = R * sqrt(1 - (y/H)^2)
@@ -221,6 +242,7 @@ export class Character extends MyObject {
     animationOn = ANIMATION_ON_AT_START;   // true = kaki melangkah & turret menoleh, false = berhenti di pose terakhir
     clock = 0;                             // waktu animasi Gundog sendiri (hanya maju saat animasi menyala)
     lastTime = null;
+    lightOn = false;
 
     constructor(GL, SHADER_PROGRAM, locations) {
         super(GL, SHADER_PROGRAM, locations);
@@ -292,9 +314,10 @@ export class Character extends MyObject {
         var turretRing = this.addMesh(createCylinder(0.31, 0.16), armorShade, 0, 0.52, 0.12);
         body.childs.push(turretRing);
 
-        // turret pivot point
-        this.turret = this.createJoint(0, 0.18, 0.12);
-        turretRing.childs.push(this.turret);
+        // Turret pivot sits at the same world-local position as before, directly under the body.
+        var turretBase = this.createJoint(0, 0.70, 0.24);
+        body.childs.push(turretBase);
+        this.turret = turretBase;
 
         //turret body
         var turretBaseOutline = [
@@ -310,18 +333,25 @@ export class Character extends MyObject {
             [0.43, 0.1],
             [0.46, -0.1]
         ];
-        var turretBase = this.addMesh(createPrism(turretBaseOutline, turretBaseOutline, 0.62, "x"), armor, 0, 0, 0);
-        this.turret.childs.push(turretBase);
+        var turretBody = this.addMesh(createPrism(turretBaseOutline, turretBaseOutline, 0.62, "x"), armor, 0, 0, 0);
+        turretBase.childs.push(turretBody);
         var turretTop = this.addMesh(createPrism(turretTopOutline, turretTopOutline, 0.68, "x"), armorShade, 0, 0, 0.02);
-        this.turret.childs.push(turretTop);
+        turretBase.childs.push(turretTop);
 
-        //turret
+        // Barrel-mounted parts inherit the turret body's transform.
         var barrel = this.addMesh(createCylinder(0.105, 0.82, "z"), armorLight, 0, 0.04, -0.76);
-        this.turret.childs.push(barrel);
-        var muzzle = this.addMesh(createCylinder(0.14, 0.13, "z"), armorShade, 0, 0.04, -1.2);
-        this.turret.childs.push(muzzle);
-        var barrelEnd = this.addMesh(createCylinder(0.075, 0.015, "z"), dark, 0, 0.04, -1.275);
-        this.turret.childs.push(barrelEnd);
+        turretBody.childs.push(barrel);
+        var muzzle = this.addMesh(createCylinder(0.14, 0.13, "z"), armorShade, 0, 0, -0.44);
+        barrel.childs.push(muzzle);
+
+        //light beam & barrel end (cahaya merah)
+        this.barrelEnd = this.addMesh(createCylinder(0.075, 0.015, "z"), dark, 0, 0, -0.515);
+        barrel.childs.push(this.barrelEnd);
+        this.lightBeam = this.addMesh(createSpotlightBeam(9, 0.12, 1.8), [1, 0.015, 0.01], 0, 0, -0.53, false);
+        this.lightBeam.hatching = 5;
+        this.lightBeam.transparent = true;
+        this.lightBeam.visible = this.lightOn;
+        barrel.childs.push(this.lightBeam);
 
 
         //kaki
@@ -403,6 +433,26 @@ export class Character extends MyObject {
         LIBS.translateY(part.POSITION_MATRIX, y);
         LIBS.translateZ(part.POSITION_MATRIX, z);
         return part;
+    }
+
+    getBarrelLight() {
+        const matrix = this.barrelEnd.MODEL_MATRIX;
+        const direction = [-matrix[8], -matrix[9], -matrix[10]];
+        const directionLength = Math.hypot(...direction) || 1;
+        return {
+            position: [
+                matrix[12] - matrix[8] * 0.01,
+                matrix[13] - matrix[9] * 0.01,
+                matrix[14] - matrix[10] * 0.01
+            ],
+            direction: direction.map(component => component / directionLength)
+        };
+    }
+
+    setLightOn(enabled) {
+        this.lightOn = enabled;
+        this.lightBeam.visible = enabled;
+        this.barrelEnd.color = enabled ? [1, 0.015, 0.01] : null;
     }
 
     animasi(time) {
