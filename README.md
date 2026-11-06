@@ -4,8 +4,16 @@
 
 - `Mouthe/Character.js` : karakter pertama (Mouthe)
 - `Gundog/Character.js` : karakter kedua (Gundog)
+- `Knifo/Character.js` : karakter ketiga (Knifo)
 - `MyObject.js`, `Shapes.js` : kelas dan pembuat bentuk yang dipakai bersama
 - `environment.js` : maze dan lantai
+
+## Skala karakter
+
+Atur skala seragam Mouthe, Gundog, dan Knifo lewat `CHARACTER_SCALE` di `main.js`.
+Angka `1` berarti ukuran asli; angka lebih besar memperbesar karakter dan angka
+antara `0` dan `1` memperkecilnya. Posisi telapak disesuaikan agar karakter tetap
+berpijak di lantai.
 
 ## Maze layout
 

@@ -1,7 +1,8 @@
-// main.js : setup WebGL, kamera, mouse, dan loop render. Karakter dibuat di Mouthe/ dan Gundog/
+// main.js : setup WebGL, kamera, mouse, dan loop render untuk environment dan karakter.
 import { Character as Mouthe } from "./Mouthe/Character.js";   // karakter pertama (Mouthe)
 import { Environment } from "./environment.js";
 import { Character as Gundog } from "./Gundog/Character.js";   // karakter kedua (Gundog)
+import { Character as Knifo } from "./Knifo/Character.js";     // karakter ketiga (Knifo)
 
 // ===== SHADER (cahaya sederhana + arsiran abu-abu) =====
 const VERTEX_SHADER = `
@@ -58,10 +59,20 @@ const FRAGMENT_SHADER = `
 // ===== LETAK GUNDOG di dalam maze (satuan dunia) =====
 const GUNDOG = {
     x: 11, z: 6,               // posisi di ruang awal (karakter pertama ada di 0, 0)
-    scale: 3,                  // gundog asli kecil (~2 satuan), diperbesar agar sepadan
     footY: -1.43,              // tinggi telapak kaki gundog pada ukuran aslinya (ditaruh tepat di lantai)
     faceCharacter: true        // true = moncong menghadap karakter pertama
 };
+const KNIFO = {
+    x: -12, z: 6,
+    yaw: 0
+};
+// Skala seragam per karakter. Ubah angka ini untuk memperbesar atau memperkecil model.
+const CHARACTER_SCALE = {
+    mouthe: 1,
+    gundog: 3,
+    knifo: 3
+};
+const MOUTHE_FOOT_Y = -5.88; // perkiraan posisi telapak Mouthe dari akar pada pose berdiri
 
 function main() {
     /*===== CANVAS & WEBGL =====*/
@@ -185,6 +196,15 @@ function main() {
     /*===== KARAKTER =====*/
     const mouthe = new Mouthe(GL, SHADER_PROGRAM, locations);
     mouthe.setup();                   // kirim semua bagian ke GPU (rekursif lewat childs)
+    for (const scale of [LIBS.scaleX, LIBS.scaleY, LIBS.scaleZ]) {
+        scale(mouthe.POSITION_MATRIX, CHARACTER_SCALE.mouthe);
+    }
+    LIBS.set_position(
+        mouthe.POSITION_MATRIX,
+        0,
+        (1 - CHARACTER_SCALE.mouthe) * MOUTHE_FOOT_Y,
+        0
+    );
 
     const environment = new Environment(GL, SHADER_PROGRAM, locations);   // maze (environment.js)
     environment.setup();
@@ -193,19 +213,29 @@ function main() {
     const gundog = new Gundog(GL, SHADER_PROGRAM, locations);
     gundog.setup();
     // letak gundog: skala -> putar -> geser (urutan ini penting karena LIBS.scale hanya mengisi diagonal)
-    LIBS.scaleX(gundog.POSITION_MATRIX, GUNDOG.scale);
-    LIBS.scaleY(gundog.POSITION_MATRIX, GUNDOG.scale);
-    LIBS.scaleZ(gundog.POSITION_MATRIX, GUNDOG.scale);
+    LIBS.scaleX(gundog.POSITION_MATRIX, CHARACTER_SCALE.gundog);
+    LIBS.scaleY(gundog.POSITION_MATRIX, CHARACTER_SCALE.gundog);
+    LIBS.scaleZ(gundog.POSITION_MATRIX, CHARACTER_SCALE.gundog);
     if (GUNDOG.faceCharacter) LIBS.rotateY(gundog.POSITION_MATRIX, Math.atan2(GUNDOG.x, GUNDOG.z));   // moncong gundog ke -z lokal
-    LIBS.set_position(gundog.POSITION_MATRIX, GUNDOG.x, environment.floorY - GUNDOG.footY * GUNDOG.scale, GUNDOG.z);
+    LIBS.set_position(
+        gundog.POSITION_MATRIX,
+        GUNDOG.x,
+        environment.floorY - GUNDOG.footY * CHARACTER_SCALE.gundog,
+        GUNDOG.z
+    );
+
+    const knifo = new Knifo(GL, SHADER_PROGRAM, locations);
+    knifo.setup();
+    knifo.setWorld(KNIFO.x, environment.floorY - Knifo.FOOT_Y, KNIFO.z, KNIFO.yaw, CHARACTER_SCALE.knifo);
 
     /*===== TOGGLE ANIMASI: satu per karakter, saling terpisah =====
        Tombol [1] atau kotak centang "Mouthe"  -> hanya menyalakan/mematikan animasi Mouthe (karakter pertama)
        Tombol [2] atau kotak centang "Gundog"  -> hanya menyalakan/mematikan animasi Gundog (karakter kedua)
-       Nilai awalnya ada di ANIMATION_ON_AT_START di Mouthe/Character.js dan Gundog/Character.js. */
+       Tombol [3] atau kotak centang "Knifo"   -> hanya menyalakan/mematikan animasi Knifo (karakter ketiga). */
     const animationToggles = [
         { key: "1", character: mouthe, checkbox: document.getElementById("toggleMouthe") },
-        { key: "2", character: gundog, checkbox: document.getElementById("toggleGundog") }
+        { key: "2", character: gundog, checkbox: document.getElementById("toggleGundog") },
+        { key: "3", character: knifo, checkbox: document.getElementById("toggleKnifo") }
     ];
     animationToggles.forEach(toggle => {
         toggle.checkbox.checked = toggle.character.animationOn;
@@ -256,6 +286,10 @@ function main() {
         // gundog (shader & kamera sama)
         gundog.animasi(performance.now());                              // gundog memakai milidetik
         gundog.render(LIBS.get_I4());
+
+        // knifo memakai waktu dalam detik, seperti Mouthe
+        knifo.animasi((now - startTime) / 1000);
+        knifo.render(LIBS.get_I4());
 
         window.requestAnimationFrame(animate);
     };
