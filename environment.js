@@ -58,7 +58,12 @@ const MAZE_LAYOUT = {
 
 const WALL = {
     height: 32,
-    thickness: 1.6
+    thickness: 1.6,
+    dimpleDepth: 0.75,
+    dimpleDensity: 0.012,
+    dimpleRadiusMin: 0.55,
+    dimpleRadiusMax: 1.7,
+    meshStep: 0.55
 };
 
 const FLOOR_Y = -5.2;
@@ -338,6 +343,115 @@ function createTerrain(rects) {
     return { surfaces, crackVertices, crackIndices };
 }
 
+function createDimpledWall(width, height, depth, x, z) {
+    const vertices = [], normals = [], vertexColors = [], indices = [];
+    const extents = { x: width, y: height, z: depth };
+    const seed = (Math.abs(Math.round(x * 1009 + z * 9176 + width * 199 + depth * 313)) >>> 0) || 1;
+    const random = createRandom(seed);
+    const faces = [
+        { normalAxis: "x", normalSign: -1, uAxis: "z", uSign: 1, vAxis: "y", vSign: 1 },
+        { normalAxis: "x", normalSign: 1, uAxis: "z", uSign: -1, vAxis: "y", vSign: 1 },
+        { normalAxis: "z", normalSign: -1, uAxis: "x", uSign: -1, vAxis: "y", vSign: 1 },
+        { normalAxis: "z", normalSign: 1, uAxis: "x", uSign: 1, vAxis: "y", vSign: 1 },
+        { normalAxis: "y", normalSign: -1, uAxis: "x", uSign: 1, vAxis: "z", vSign: 1 },
+        { normalAxis: "y", normalSign: 1, uAxis: "x", uSign: -1, vAxis: "z", vSign: 1 }
+    ];
+    const axisIndex = { x: 0, y: 1, z: 2 };
+    const binSize = WALL.dimpleRadiusMax * 2;
+
+    faces.forEach(face => {
+        const uLength = extents[face.uAxis], vLength = extents[face.vAxis];
+        const columns = Math.max(1, Math.ceil(uLength / WALL.meshStep));
+        const rows = Math.max(1, Math.ceil(vLength / WALL.meshStep));
+        const maxRadius = Math.min(WALL.dimpleRadiusMax, uLength / 2, vLength / 2);
+        const minRadius = Math.min(WALL.dimpleRadiusMin, maxRadius);
+        const dimpled = face.normalAxis !== "y" && maxRadius >= WALL.dimpleRadiusMin;
+        const faceStart = vertices.length / 3;
+        const normal = [0, 0, 0];
+        normal[axisIndex[face.normalAxis]] = face.normalSign;
+        const uDirection = [0, 0, 0];
+        uDirection[axisIndex[face.uAxis]] = face.uSign;
+        const vDirection = [0, 0, 0];
+        vDirection[axisIndex[face.vAxis]] = face.vSign;
+
+        const dimpleBins = new Map();
+        if (dimpled) {
+            const area = (uLength - 2 * minRadius) * (vLength - 2 * minRadius);
+            const count = Math.round(area * WALL.dimpleDensity);
+            for (let i = 0; i < count; i++) {
+                const radius = minRadius + random() * (maxRadius - minRadius);
+                const dimple = {
+                    u: radius + random() * (uLength - 2 * radius),
+                    v: radius + random() * (vLength - 2 * radius),
+                    radius,
+                    strength: WALL.dimpleDepth * (0.7 + random() * 0.6)
+                };
+                const key = `${Math.floor(dimple.u / binSize)},${Math.floor(dimple.v / binSize)}`;
+                if (!dimpleBins.has(key)) dimpleBins.set(key, []);
+                dimpleBins.get(key).push(dimple);
+            }
+        }
+
+        for (let row = 0; row <= rows; row++) {
+            const v = vLength * row / rows;
+            for (let column = 0; column <= columns; column++) {
+                const u = uLength * column / columns;
+                let depth = 0, slopeU = 0, slopeV = 0;
+
+                if (dimpled) {
+                    const binU = Math.floor(u / binSize), binV = Math.floor(v / binSize);
+                    for (let binRow = binV - 1; binRow <= binV + 1; binRow++) {
+                        for (let binColumn = binU - 1; binColumn <= binU + 1; binColumn++) {
+                            const dimples = dimpleBins.get(`${binColumn},${binRow}`) || [];
+                            for (const dimple of dimples) {
+                                const du = u - dimple.u, dv = v - dimple.v;
+                                if (Math.abs(du) >= dimple.radius || Math.abs(dv) >= dimple.radius) continue;
+
+                                const radiusSquared = dimple.radius * dimple.radius;
+                                const distanceSquared = (du * du + dv * dv) / radiusSquared;
+                                if (distanceSquared >= 1) continue;
+
+                                const remaining = 1 - distanceSquared;
+                                const dimpleDepth = dimple.strength * remaining * remaining;
+                                if (dimpleDepth > depth) {
+                                    depth = dimpleDepth;
+                                    slopeU = 4 * dimple.strength * remaining * du / radiusSquared;
+                                    slopeV = 4 * dimple.strength * remaining * dv / radiusSquared;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                const point = [0, 0, 0];
+                point[axisIndex[face.uAxis]] = face.uSign * (u - uLength / 2);
+                point[axisIndex[face.vAxis]] = face.vSign * (v - vLength / 2);
+                point[axisIndex[face.normalAxis]] = face.normalSign * (extents[face.normalAxis] / 2 - depth);
+                vertices.push(point[0], point[1], point[2]);
+
+                const nx = normal[0] - uDirection[0] * slopeU - vDirection[0] * slopeV;
+                const ny = normal[1] - uDirection[1] * slopeU - vDirection[1] * slopeV;
+                const nz = normal[2] - uDirection[2] * slopeU - vDirection[2] * slopeV;
+                const normalLength = Math.hypot(nx, ny, nz);
+                normals.push(nx / normalLength, ny / normalLength, nz / normalLength);
+
+                const tone = 1 - 0.22 * depth / WALL.dimpleDepth;
+                vertexColors.push(tone, tone, tone);
+            }
+        }
+
+        for (let row = 0; row < rows; row++) {
+            for (let column = 0; column < columns; column++) {
+                const a = faceStart + row * (columns + 1) + column;
+                const b = a + 1, c = a + columns + 1, d = c + 1;
+                indices.push(a, b, c, b, d, c);
+            }
+        }
+    });
+
+    return { vertices, normals, vertexColors, indices };
+}
+
 // ---------- 4. OBJEK ENVIRONMENT ----------
 export class Environment extends MyObject {
     constructor(GL, SHADER_PROGRAM, locations) {
@@ -387,7 +501,7 @@ export class Environment extends MyObject {
 
         // dinding
         planWalls(rects).forEach(wall => {
-            this.childs.push(this.addBlock(
+            this.childs.push(this.addDimpledBlock(
                 wall.width, WALL.height, wall.depth,
                 wall.x, FLOOR_Y + WALL.height / 2, wall.z,
                 BRIGHTNESS.wall
@@ -403,6 +517,19 @@ export class Environment extends MyObject {
         part.normals = shape.normals;
         part.faces = shape.indices;
         part.brightness = brightness;
+        LIBS.set_position(part.POSITION_MATRIX, x, y, z);
+        return part;
+    }
+
+    addDimpledBlock(width, height, depth, x, y, z, brightness) {
+        const shape = createDimpledWall(width, height, depth, x, z);
+        const part = new MyObject(this.GL, this.SHADER_PROGRAM, this.locations);
+        part.vertex = shape.vertices;
+        part.normals = shape.normals;
+        part.vertexColors = shape.vertexColors;
+        part.faces = shape.indices;
+        part.brightness = brightness;
+        part.hatching = 0;
         LIBS.set_position(part.POSITION_MATRIX, x, y, z);
         return part;
     }
