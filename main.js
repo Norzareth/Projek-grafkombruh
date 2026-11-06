@@ -14,10 +14,15 @@ const VERTEX_SHADER = `
     uniform mat4 u_model;
     varying vec3 v_normal;
     varying vec3 v_vertexColor;
+    varying vec3 v_worldPosition;
+    varying vec3 v_worldNormal;
     void main(void) {
-        gl_Position = u_projection * u_view * u_model * vec4(a_position, 1.0);
+        vec4 worldPosition = u_model * vec4(a_position, 1.0);
+        gl_Position = u_projection * u_view * worldPosition;
         v_normal = mat3(u_view * u_model) * a_normal;
         v_vertexColor = a_vertexColor;
+        v_worldPosition = worldPosition.xyz;
+        v_worldNormal = mat3(u_model) * a_normal;
     }
 `;
 
@@ -25,10 +30,23 @@ const FRAGMENT_SHADER = `
     precision mediump float;
     varying vec3 v_normal;
     varying vec3 v_vertexColor;
+    varying vec3 v_worldPosition;
+    varying vec3 v_worldNormal;
     uniform vec3 u_color;
-    uniform float u_hatch;      // 1 = beri arsiran, 0 = polos
+    uniform float u_hatch;      // material: 2 lantai, 3 dinding, 4 rangka pilar
 
     float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+
+    float valueNoise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        return mix(
+            mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
+            mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x),
+            f.y
+        );
+    }
 
     void main(void) {
         vec3 normal = normalize(v_normal);
@@ -42,7 +60,51 @@ const FRAGMENT_SHADER = `
         shade *= backFaceDarkness;
         vec3 color = u_color * v_vertexColor * shade;
 
-        if (u_hatch > 0.5) {
+        if (u_hatch > 1.5 && u_hatch < 2.5) {
+            vec2 surface = v_worldPosition.xz * 0.42;
+            float broad = valueNoise(surface * 0.22);
+            float grain = valueNoise(surface * 2.8);
+            float fine = hash(floor(surface * 18.0));
+            float scuff = valueNoise(vec2(surface.x * 0.55 + surface.y * 0.18, surface.y * 3.0));
+            float mottling = broad * 0.48 + grain * 0.30 + fine * 0.14 + scuff * 0.08;
+            float seams = smoothstep(0.0, 0.055, min(
+                min(fract(v_worldPosition.x / 7.0), 1.0 - fract(v_worldPosition.x / 7.0)),
+                min(fract(v_worldPosition.z / 7.0), 1.0 - fract(v_worldPosition.z / 7.0))
+            ));
+            float floorTexture = mix(0.52 + mottling * 0.72, 0.32 + mottling * 0.38, 1.0 - seams);
+            color *= floorTexture;
+        } else if (u_hatch > 2.5 && u_hatch < 3.5) {
+            vec3 weights = pow(abs(normalize(v_worldNormal)), vec3(4.0));
+            weights /= max(weights.x + weights.y + weights.z, 0.0001);
+            vec2 surfaceX = v_worldPosition.zy * vec2(0.72, 0.48);
+            vec2 surfaceY = v_worldPosition.xz * vec2(0.72, 0.72);
+            vec2 surfaceZ = v_worldPosition.xy * vec2(0.72, 0.48);
+            float broad = valueNoise(surfaceX * 0.18) * weights.x
+                        + valueNoise(surfaceY * 0.18) * weights.y
+                        + valueNoise(surfaceZ * 0.18) * weights.z;
+            float medium = valueNoise(surfaceX * vec2(1.8, 2.7)) * weights.x
+                         + valueNoise(surfaceY * 1.8) * weights.y
+                         + valueNoise(surfaceZ * vec2(1.8, 2.7)) * weights.z;
+            float grit = hash(floor(surfaceX * 22.0)) * weights.x
+                       + hash(floor(surfaceY * 22.0)) * weights.y
+                       + hash(floor(surfaceZ * 22.0)) * weights.z;
+            float verticalStreak = valueNoise(vec2(surfaceX.x * 0.22, surfaceX.y * 3.5)) * weights.x
+                                 + valueNoise(vec2(surfaceY.x * 0.22, surfaceY.y * 3.5)) * weights.y
+                                 + valueNoise(vec2(surfaceZ.x * 0.22, surfaceZ.y * 3.5)) * weights.z;
+            float scratchX = valueNoise(vec2(surfaceX.x * 6.0, surfaceX.y * 0.35));
+            float scratchY = valueNoise(vec2(surfaceY.x * 6.0, surfaceY.y * 0.35));
+            float scratchZ = valueNoise(vec2(surfaceZ.x * 6.0, surfaceZ.y * 0.35));
+            float scratches = smoothstep(0.72, 0.96,
+                scratchX * weights.x + scratchY * weights.y + scratchZ * weights.z);
+            float grime = broad * 0.35 + medium * 0.35 + grit * 0.18 + verticalStreak * 0.12;
+            color *= 0.38 + grime * 0.78 - scratches * 0.12;
+        } else if (u_hatch > 3.5) {
+            vec2 surface = v_worldPosition.xy * 1.7 + v_worldPosition.zy * 0.7;
+            float oxide = valueNoise(surface * 0.32) * 0.52
+                        + valueNoise(surface * 2.4) * 0.32
+                        + hash(floor(surface * 14.0)) * 0.16;
+            color *= 0.38 + oxide * 0.72;
+        } else if (u_hatch > 0.5) {
             vec2 pixel = gl_FragCoord.xy;
             float lineA = step(0.55, sin((pixel.x + pixel.y) * 1.6) * 0.5 + 0.5);
             float lineB = step(0.55, sin((pixel.x - pixel.y) * 1.6) * 0.5 + 0.5);

@@ -32,6 +32,8 @@
 // ============================================================
 import { MyObject } from "./MyObject.js";
 import * as Shape from "./Shapes.js";
+import { Pillar, PILLARS } from "./Pillar.js";
+import { CrateStack, CRATE_STACKS } from "./CrateStack.js";
 
 // ===== UKURAN MAZE (satuan dunia) =====
 const MAZE_LAYOUT = {
@@ -485,7 +487,7 @@ export class Environment extends MyObject {
             floorSurface.vertexColors = surface.vertexColors;
             floorSurface.faces = surface.indices;
             floorSurface.brightness = BRIGHTNESS.floor;
-            floorSurface.hatching = 0;
+            floorSurface.hatching = 2;
             LIBS.set_position(floorSurface.POSITION_MATRIX, 0, FLOOR_Y, 0);
             this.childs.push(floorSurface);
         });
@@ -495,7 +497,7 @@ export class Environment extends MyObject {
         cracks.normals = terrain.crackVertices.map((_, index) => index % 3 === 1 ? 1 : 0);
         cracks.faces = terrain.crackIndices;
         cracks.brightness = 0.28;
-        cracks.hatching = 0;
+        cracks.hatching = 2;
         LIBS.set_position(cracks.POSITION_MATRIX, 0, FLOOR_Y, 0);
         this.childs.push(cracks);
 
@@ -505,6 +507,30 @@ export class Environment extends MyObject {
                 wall.width, WALL.height, wall.depth,
                 wall.x, FLOOR_Y + WALL.height / 2, wall.z,
                 BRIGHTNESS.wall
+            ));
+        });
+
+        PILLARS.forEach(config => {
+            this.childs.push(new Pillar(
+                this.GL,
+                this.SHADER_PROGRAM,
+                this.locations,
+                config,
+                FLOOR_Y
+            ));
+        });
+
+        const roomsByName = new Map(rects.filter(rect => rect.kind === "room").map(room => [room.name, room]));
+        CRATE_STACKS.forEach(config => {
+            const room = roomsByName.get(config.room);
+            if (!room) throw new Error(`Crate stack references unknown room "${config.room}".`);
+            this.childs.push(new CrateStack(
+                this.GL,
+                this.SHADER_PROGRAM,
+                this.locations,
+                room,
+                config,
+                FLOOR_Y
             ));
         });
     }
@@ -529,7 +555,7 @@ export class Environment extends MyObject {
         part.vertexColors = shape.vertexColors;
         part.faces = shape.indices;
         part.brightness = brightness;
-        part.hatching = 0;
+        part.hatching = 3;
         LIBS.set_position(part.POSITION_MATRIX, x, y, z);
         return part;
     }
