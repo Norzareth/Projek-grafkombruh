@@ -56,24 +56,27 @@ const FRAGMENT_SHADER = `
     }
 `;
 
-// ===== LETAK GUNDOG di dalam maze (satuan dunia) =====
+// ===== Letak Character di dalam maze (satuan dunia) =====
 const GUNDOG = {
     x: 11, z: 6,               // posisi di ruang awal (karakter pertama ada di 0, 0)
-    footY: -1.43,              // tinggi telapak kaki gundog pada ukuran aslinya (ditaruh tepat di lantai)
+    footY: -1.7,              // tinggi telapak kaki gundog pada ukuran aslinya (ditaruh tepat di lantai)
     faceCharacter: true        // true = moncong menghadap karakter pertama
 };
 const KNIFO = {
     x: -12, z: 6,
+    footY: 0,
     yaw: 0
+};
+const MOUTHE = {
+    x: 0, z: 0,
+    footY: -5.88
 };
 // Skala seragam per karakter. Ubah angka ini untuk memperbesar atau memperkecil model.
 const CHARACTER_SCALE = {
     mouthe: 1,
-    gundog: 3,
+    gundog: 5,
     knifo: 3
 };
-const MOUTHE_FOOT_Y = -5.88; // perkiraan posisi telapak Mouthe dari akar pada pose berdiri
-
 function main() {
     /*===== CANVAS & WEBGL =====*/
     const CANVAS = document.getElementById("myCanvas");
@@ -201,9 +204,9 @@ function main() {
     }
     LIBS.set_position(
         mouthe.POSITION_MATRIX,
-        0,
-        (1 - CHARACTER_SCALE.mouthe) * MOUTHE_FOOT_Y,
-        0
+        MOUTHE.x,
+        (1 - CHARACTER_SCALE.mouthe) * MOUTHE.footY,
+        MOUTHE.z
     );
 
     const environment = new Environment(GL, SHADER_PROGRAM, locations);   // maze (environment.js)

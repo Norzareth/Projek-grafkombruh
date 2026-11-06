@@ -412,11 +412,15 @@ export class Character extends MyObject {
         this.legs.forEach(function (leg) {
             // Pinggul mengayun depan/belakang. Lutut hanya menekuk pada separuh ayunan ke belakang.
             var swing = 0.38 * Math.sin(cycle + leg.phase * Math.PI);
+            var kneeBend = Math.max(0, -swing) * 0.65;
             LIBS.set_I4(leg.hip.MOVE_MATRIX);
             LIBS.rotateX(leg.hip.MOVE_MATRIX, swing);
 
             LIBS.set_I4(leg.knee.MOVE_MATRIX);
-            LIBS.rotateX(leg.knee.MOVE_MATRIX, Math.max(0, -swing) * 0.65);
+            LIBS.rotateX(leg.knee.MOVE_MATRIX, kneeBend);
+
+            LIBS.set_I4(leg.footPivot.MOVE_MATRIX);
+            LIBS.rotateX(leg.footPivot.MOVE_MATRIX, -(swing + kneeBend));
         });
 
         // Reset dulu sebelum mengisi putaran, supaya putaran tidak menumpuk tiap frame.

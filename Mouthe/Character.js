@@ -22,7 +22,7 @@ import * as Shape from "../Shapes.js";
 
 // ===== PENGATURAN (sudut dalam radian, karakter menghadap +z) =====
 const ANIMATION_ON_AT_START = false; // nilai awal: false = Mouthe diam, true = bergerak (diubah dengan toggle [1] di halaman)
-const FROZEN_TIME = 0.5;             // saat diam, gerakan dibekukan pada detik ini
+const FROZEN_TIME = 0.5;             // pose awal saat animasi belum pernah dijalankan
 const JAW_OPEN_WHEN_STILL = 0.12;    // bukaan rahang saat diam
 
 const TORSO = { width: 2.3, depth: 1, height: 3.2, segments: 24 };
@@ -75,6 +75,9 @@ function pointOnUpperHead(theta, phi, outward) {
 
 export class Character extends MyObject {
     animationOn = ANIMATION_ON_AT_START;   // toggle animasi khusus Mouthe (diatur dari main.js)
+    hasAnimated = false;
+    clock = FROZEN_TIME;
+    lastTime = null;
 
     constructor(GL, SHADER_PROGRAM, locations) {
         super(GL, SHADER_PROGRAM, locations);     // akar kosong: hanya induk transformasi, semua bagian = anaknya
@@ -188,7 +191,13 @@ export class Character extends MyObject {
 
     // ---------- gerakan: isi ulang MOVE_MATRIX tiap frame (urutan LIBS.rotate = urutan terjadinya) ----------
     animasi(time) {
-        const t = this.animationOn ? time : FROZEN_TIME;
+        if (this.lastTime === null) this.lastTime = time;
+        if (this.animationOn) this.clock += time - this.lastTime;
+        this.lastTime = time;
+
+        if (!this.animationOn && this.hasAnimated) return;
+
+        const t = this.clock;
         const legStep = Math.sin(t * 3);               // langkah kaki
         const armSwing = Math.sin(t * 3 + Math.PI);    // lengan berlawanan dengan kaki
 
@@ -223,5 +232,7 @@ export class Character extends MyObject {
             LIBS.set_I4(ankle.MOVE_MATRIX);
             LIBS.rotateX(ankle.MOVE_MATRIX, -(pose.thighAngle + pose.kneeAngle) * pose.ankleFactor);   // telapak tetap rata
         });
+
+        if (this.animationOn) this.hasAnimated = true;
     }
 }
