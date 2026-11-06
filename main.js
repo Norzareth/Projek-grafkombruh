@@ -149,7 +149,7 @@ const GUNDOG = {
     footY: -1.7,
     faceCharacter: true,
     target: "mouthe",
-    rotationY: 0 // rotasi tambahan di sumbu Y, radian (90 derajat = Math.PI / 2)
+    rotationY: 0 // rotasi tambahan di sumbu Y, derajat
 };
 const KNIFO = {
     x: -180, z: 142,
@@ -170,9 +170,9 @@ const CHARACTER_FORWARD = { mouthe: 1, gundog: -1, knifo: 1 };
 
 function characterYaw(name) {
     const character = CHARACTER_PLACEMENTS[name];
-    const rotationY = character.rotationY ?? 0;
-    if (!Number.isFinite(rotationY)) throw new Error(`${name}.rotationY must be a finite angle in radians.`);
-    if (!character.faceCharacter) return rotationY;
+    const rotationOffset = LIBS.degToRad(character.rotationY ?? 0);
+    if (!Number.isFinite(rotationOffset)) throw new Error(`${name}.rotationY must be a finite angle in degrees.`);
+    if (!character.faceCharacter) return rotationOffset;
 
     const target = CHARACTER_PLACEMENTS[character.target];
     if (!target || target === character) {
@@ -181,10 +181,10 @@ function characterYaw(name) {
 
     const dx = target.x - character.x;
     const dz = target.z - character.z;
-    if (dx === 0 && dz === 0) return rotationY;
+    if (dx === 0 && dz === 0) return rotationOffset;
 
     const forward = CHARACTER_FORWARD[name];
-    return Math.atan2(forward * dx, forward * dz) + rotationY;
+    return Math.atan2(forward * dx, forward * dz) + rotationOffset;
 }
 const CHARACTER_YAWS = {
     mouthe: characterYaw("mouthe"),
