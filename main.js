@@ -145,10 +145,10 @@ const FRAGMENT_SHADER = `
 // R7: X[156, 220], Z[-4, 60]
 // Atur posisi karakter secara manual hanya dengan x dan z.
 const GUNDOG = {
-    x: 110, z: 6,
+    x: -180, z: 140,
     footY: -1.7,
     faceCharacter: true,
-    target: "knifo",
+    target: "mouthe",
     rotationY: 0 // rotasi tambahan di sumbu Y, radian (90 derajat = Math.PI / 2)
 };
 const KNIFO = {
@@ -159,11 +159,11 @@ const KNIFO = {
     rotationY: 4.85
 };
 const MOUTHE = {
-    x: -190, z: 125,
+    x: -180, z: 125,
     footY: -5.88,
-    faceCharacter: false,
-    target: "knifo",
-    rotationY: 0
+    faceCharacter: true,
+    target: "gundog",
+    rotationY: 3.29
 };
 const CHARACTER_PLACEMENTS = { mouthe: MOUTHE, gundog: GUNDOG, knifo: KNIFO };
 const CHARACTER_FORWARD = { mouthe: 1, gundog: -1, knifo: 1 };
@@ -209,7 +209,7 @@ const CHARACTER_SCALE = {
 // Pengali kecepatan animasi: 1 = normal, 2 = dua kali lebih cepat,
 // 0.5 = setengah kecepatan. Nilai 0 menghentikan animasi tanpa mematikan toggle.
 const ANIMATION_SPEED = {
-    mouthe: 2,
+    mouthe: 1,
     gundog: 1,
     knifo: 3
 };
