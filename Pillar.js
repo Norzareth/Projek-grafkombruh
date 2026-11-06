@@ -3,10 +3,10 @@ import * as Shape from "./Shapes.js";
 
 // Edit daftar ini untuk mengatur pilar di maze. width adalah diameter pilar.
 export const PILLARS = [
-    { x: -190, z: 142, width: 5, height: 18 },
-    { x: -190, z: 26, width: 4, height: 12 },
-    { x: 190, z: 142, width: 4, height: 15 },
-    { x: 190, z: 26, width: 5, height: 20 }
+    { x: -190, z: 142, width: 5, height: 50 },
+    { x: -190, z: 26, width: 4, height: 50 },
+    { x: 190, z: 142, width: 4, height: 50 },
+    { x: 190, z: 26, width: 5, height: 50 }
 ];
 
 export class Pillar extends MyObject {

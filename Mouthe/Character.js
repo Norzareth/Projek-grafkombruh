@@ -24,6 +24,7 @@ import * as Shape from "../Shapes.js";
 const ANIMATION_ON_AT_START = false; // nilai awal: false = Mouthe diam, true = bergerak (diubah dengan toggle [1] di halaman)
 const FROZEN_TIME = 0.5;             // pose awal saat animasi belum pernah dijalankan
 const JAW_OPEN_WHEN_STILL = 0.12;    // bukaan rahang saat diam
+const HEAD_TURN = { angle: 0.45, speed: 1.2 }; // sudut maksimum dan kecepatan menoleh kiri-kanan
 
 const TORSO = { width: 2.3, depth: 1, height: 3.2, segments: 24 };
 const HEAD = { radiusX: 2.7, radiusZ: 2.2, upperHeight: 1.9, lowerHeight: 1.1, offsetY: 2.75, offsetZ: 1.5 };
@@ -206,12 +207,13 @@ export class Character extends MyObject {
         LIBS.rotateX(this.torso.MOVE_MATRIX, 0.1 + Math.sin(t * 2) * 0.03);
         LIBS.translateY(this.torso.MOVE_MATRIX, Math.sin(t * 3) * 0.12);
 
-        // head: miring (Z) lalu mengangguk (X); jaw: membuka-menutup di engsel
+        // head: menoleh (Y), miring (Z), lalu mengangguk (X); jaw: membuka-menutup di engsel
         LIBS.set_I4(this.head.MOVE_MATRIX);
+        LIBS.rotateY(this.head.MOVE_MATRIX, Math.sin(t * HEAD_TURN.speed) * HEAD_TURN.angle);
         LIBS.rotateZ(this.head.MOVE_MATRIX, Math.sin(t * 1.2) * 0.03);
         LIBS.rotateX(this.head.MOVE_MATRIX, -0.18 + Math.sin(t * 1.5) * 0.04);
         LIBS.set_I4(this.jaw.MOVE_MATRIX);
-        LIBS.rotateX(this.jaw.MOVE_MATRIX, this.animationOn ? 0.30 + 0.22 * Math.sin(t * 2.2) : JAW_OPEN_WHEN_STILL);
+        LIBS.rotateX(this.jaw.MOVE_MATRIX, this.animationOn ? 0.30 + 0.22 * Math.sin(t * 0) : JAW_OPEN_WHEN_STILL);
 
         this.arms.forEach(({ upperArm, forearm, pose }) => {
             LIBS.set_I4(upperArm.MOVE_MATRIX);

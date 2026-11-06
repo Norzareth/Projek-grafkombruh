@@ -118,34 +118,42 @@ const FRAGMENT_SHADER = `
     }
 `;
 
-// ===== LETAK GUNDOG di dalam maze (satuan dunia) =====
+// Koordinat karakter memakai posisi dunia X/Z (Y dihitung dari FLOOR_Y dan footY).
+// Batas ruang dari MAZE_LAYOUT saat ini, format X[min, max], Z[min, max]:
+// R1: X[-32, 32],   Z[-32, 32]       R2: X[-136, -72], Z[52, 116]
+// R3: X[72, 136],   Z[52, 116]        R4: X[-220, -156], Z[108, 172]
+// R5: X[-220, -156], Z[-4, 60]        R6: X[156, 220], Z[108, 172]
+// R7: X[156, 220], Z[-4, 60]
+// Atur posisi karakter secara manual hanya dengan x dan z.
 const GUNDOG = {
-    x: 11, z: 6,               // posisi di ruang awal (karakter pertama ada di 0, 0)
-    footY: -1.7,              // tinggi telapak kaki gundog pada ukuran aslinya (ditaruh tepat di lantai)
+    x: 110, z: 6,
+    footY: -1.7,
     faceCharacter: true,
     target: "knifo",
-    yaw: 0
+    rotationY: 0 // rotasi tambahan di sumbu Y, radian (90 derajat = Math.PI / 2)
 };
 const KNIFO = {
-    x: -12, z: 6,
+    x: 75, z: 80,
     footY: 0,
-    faceCharacter: true,
+    faceCharacter: false,
     target: "mouthe",
-    yaw: 0
+    rotationY: 4.85
 };
 const MOUTHE = {
-    x: 0, z: 0,
+    x: -190, z: 125,
     footY: -5.88,
-    faceCharacter: true,
+    faceCharacter: false,
     target: "knifo",
-    yaw: 0
+    rotationY: 0
 };
 const CHARACTER_PLACEMENTS = { mouthe: MOUTHE, gundog: GUNDOG, knifo: KNIFO };
 const CHARACTER_FORWARD = { mouthe: 1, gundog: -1, knifo: 1 };
 
 function characterYaw(name) {
     const character = CHARACTER_PLACEMENTS[name];
-    if (!character.faceCharacter) return character.yaw;
+    const rotationY = character.rotationY ?? 0;
+    if (!Number.isFinite(rotationY)) throw new Error(`${name}.rotationY must be a finite angle in radians.`);
+    if (!character.faceCharacter) return rotationY;
 
     const target = CHARACTER_PLACEMENTS[character.target];
     if (!target || target === character) {
@@ -154,10 +162,10 @@ function characterYaw(name) {
 
     const dx = target.x - character.x;
     const dz = target.z - character.z;
-    if (dx === 0 && dz === 0) return character.yaw;
+    if (dx === 0 && dz === 0) return rotationY;
 
     const forward = CHARACTER_FORWARD[name];
-    return Math.atan2(forward * dx, forward * dz);
+    return Math.atan2(forward * dx, forward * dz) + rotationY;
 }
 const CHARACTER_YAWS = {
     mouthe: characterYaw("mouthe"),
@@ -165,14 +173,66 @@ const CHARACTER_YAWS = {
     knifo: characterYaw("knifo")
 };
 
+function validateCharacterPositions() {
+    for (const [name, position] of Object.entries(CHARACTER_PLACEMENTS)) {
+        if (!Number.isFinite(position.x) || !Number.isFinite(position.z)) {
+            throw new Error(`${name} position requires finite x and z coordinates.`);
+        }
+    }
+}
+
 // Skala seragam per karakter. Ubah angka ini untuk memperbesar atau memperkecil model.
 const CHARACTER_SCALE = {
     mouthe: 1,
     gundog: 3,
     knifo: 3
 };
+// Pengali kecepatan animasi: 1 = normal, 2 = dua kali lebih cepat,
+// 0.5 = setengah kecepatan. Nilai 0 menghentikan animasi tanpa mematikan toggle.
+const ANIMATION_SPEED = {
+    mouthe: 2,
+    gundog: 1,
+    knifo: 3
+};
 const MOUTHE_FOOT_Y = -5.88; // perkiraan posisi telapak Mouthe dari akar pada pose berdiri
-const CHARACTER_FORWARD_SPEED = 50; // satuan dunia per detik
+const CHARACTER_FORWARD_SPEED = 20; // satuan dunia per detik
+// Gerak maju dan rotasi otomatis tiap karakter.
+// forward.distance dalam satuan dunia; rotation.angle dalam radian.
+// rotation.direction: 1 = putar positif Y (dari +Z menuju +X), -1 = arah sebaliknya.
+// rotation.speed dalam radian per detik.
+const CHARACTER_MOTION = {
+    mouthe: {
+        forward: { distance: 1000, speed: CHARACTER_FORWARD_SPEED },
+        rotation: { direction: 1, angle: Math.PI * 2, speed: Math.PI / 4 }
+    },
+    gundog: {
+        forward: { distance: 30, speed: CHARACTER_FORWARD_SPEED },
+        rotation: { direction: 1, angle: Math.PI * 2, speed: Math.PI / 4 }
+    },
+    knifo: {
+        forward: { distance: 100, speed: CHARACTER_FORWARD_SPEED },
+        rotation: { direction: 1, angle: Math.PI / 2, speed: Math.PI / 2 }
+    }
+};
+const KNIFO_SCENE = {
+    autoStart: true,
+    sequencePending: true
+};
+
+if (Object.values(ANIMATION_SPEED).some(speed => !Number.isFinite(speed) || speed < 0)) {
+    throw new Error("ANIMATION_SPEED values must be finite numbers greater than or equal to 0.");
+}
+for (const [name, motion] of Object.entries(CHARACTER_MOTION)) {
+    if (!Number.isFinite(motion.forward.distance) || motion.forward.distance < 0
+        || !Number.isFinite(motion.forward.speed)
+        || (motion.forward.distance > 0 && motion.forward.speed <= 0)
+        || ![-1, 1].includes(motion.rotation.direction)
+        || !Number.isFinite(motion.rotation.angle) || motion.rotation.angle < 0
+        || !Number.isFinite(motion.rotation.speed)
+        || (motion.rotation.angle > 0 && motion.rotation.speed <= 0)) {
+        throw new Error(`Invalid forward or rotation settings for ${name}.`);
+    }
+}
 
 function main() {
     /*===== CANVAS & WEBGL =====*/
@@ -233,6 +293,7 @@ function main() {
 
     /*===== FREECAM (click to capture mouse; Esc to release) =====*/
     const camera = { x: 0, y: 3, z: 18, yaw: 0, pitch: -0.12 };
+    const CAMERA_STORAGE_KEY = "projek-grafkombruh.camera.v1";
     const pressedKeys = new Set();
     let moveSpeed = 12;
     const MOVE_SPEED_MIN = 1;
@@ -243,6 +304,52 @@ function main() {
     const LOOK_SENSITIVITY_MIN = 0.1;
     const LOOK_SENSITIVITY_MAX = 4;
     const PITCH_LIMIT = Math.PI / 2 - 0.01;
+    let cameraStorageAvailable = true;
+    try {
+        const savedCamera = sessionStorage.getItem(CAMERA_STORAGE_KEY);
+        if (savedCamera) {
+            const state = JSON.parse(savedCamera);
+            const values = [state.x, state.y, state.z, state.yaw, state.pitch, state.moveSpeed, state.lookSensitivity];
+            if (!values.every(Number.isFinite)) throw new Error("Saved camera state contains invalid values.");
+            Object.assign(camera, {
+                x: state.x,
+                y: state.y,
+                z: state.z,
+                yaw: state.yaw,
+                pitch: Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, state.pitch))
+            });
+            moveSpeed = Math.max(MOVE_SPEED_MIN, Math.min(MOVE_SPEED_MAX, state.moveSpeed));
+            lookSensitivity = Math.max(LOOK_SENSITIVITY_MIN, Math.min(LOOK_SENSITIVITY_MAX, state.lookSensitivity));
+        }
+    } catch (error) {
+        console.warn("Could not restore saved camera state; using the default camera.", error);
+        try {
+            sessionStorage.removeItem(CAMERA_STORAGE_KEY);
+        } catch (storageError) {
+            cameraStorageAvailable = false;
+            console.warn("Could not access session storage for the camera.", storageError);
+        }
+    }
+    const saveCameraState = () => {
+        if (!cameraStorageAvailable) return;
+        try {
+            sessionStorage.setItem(CAMERA_STORAGE_KEY, JSON.stringify({
+                x: camera.x,
+                y: camera.y,
+                z: camera.z,
+                yaw: camera.yaw,
+                pitch: camera.pitch,
+                moveSpeed,
+                lookSensitivity
+            }));
+        } catch (error) {
+            cameraStorageAvailable = false;
+            console.warn("Could not save camera state.", error);
+        }
+    };
+    saveCameraState();
+    window.addEventListener("pagehide", saveCameraState);
+    let lastCameraSave = performance.now();
     const controls = document.getElementById("cameraControls");
     window.addEventListener("keydown", event => {
         if (event.key.toLowerCase() !== "e" || event.repeat) return;
@@ -333,6 +440,7 @@ function main() {
 
     const environment = new Environment(GL, SHADER_PROGRAM, locations);   // maze (environment.js)
     environment.setup();
+    validateCharacterPositions();
     const roofToggle = document.getElementById("toggleRoof");
     roofToggle.checked = environment.roof.visible;
     roofToggle.addEventListener("change", () => {
@@ -373,6 +481,7 @@ function main() {
     const knifo = new Knifo(GL, SHADER_PROGRAM, locations);
     knifo.setup();
     knifo.setWorld(KNIFO.x, environment.floorY - Knifo.FOOT_Y, KNIFO.z, CHARACTER_YAWS.knifo, CHARACTER_SCALE.knifo);
+    knifo.animationOn = true;
 
 
 
@@ -408,23 +517,42 @@ function main() {
     const movementToggles = [
         {
             key: "4",
+            name: "mouthe",
             matrix: mouthe.POSITION_MATRIX,
             checkbox: document.getElementById("moveMouthe"),
-            direction: forwardFromYaw(CHARACTER_YAWS.mouthe)
+            localDirection: 1
         },
         {
             key: "5",
+            name: "gundog",
             matrix: gundog.POSITION_MATRIX,
             checkbox: document.getElementById("moveGundog"),
-            direction: forwardFromYaw(CHARACTER_YAWS.gundog, -1)
+            localDirection: -1
         },
         {
             key: "6",
+            name: "knifo",
             matrix: knifo.MOVE_MATRIX,
             checkbox: document.getElementById("moveKnifo"),
-            direction: forwardFromYaw(CHARACTER_YAWS.knifo)
+            localDirection: 1
         }
     ];
+    const setMovementActive = (toggle, active) => {
+        if (active) {
+            if (toggle.distance >= CHARACTER_MOTION[toggle.name].forward.distance) {
+                toggle.distance = 0;
+                toggle.matrix[12] = toggle.startX;
+                toggle.matrix[14] = toggle.startZ;
+            }
+            toggle.active = CHARACTER_MOTION[toggle.name].forward.distance > 0;
+        } else {
+            toggle.active = false;
+            toggle.distance = 0;
+            toggle.matrix[12] = toggle.startX;
+            toggle.matrix[14] = toggle.startZ;
+        }
+        toggle.checkbox.checked = toggle.active;
+    };
     movementToggles.forEach(toggle => {
         toggle.startX = toggle.matrix[12];
         toggle.startZ = toggle.matrix[14];
@@ -432,27 +560,51 @@ function main() {
         toggle.active = false;
         toggle.checkbox.checked = false;
         toggle.checkbox.addEventListener("change", () => {
-            toggle.active = toggle.checkbox.checked;
-            if (!toggle.active) {
-                toggle.distance = 0;
-                toggle.matrix[12] = toggle.startX;
-                toggle.matrix[14] = toggle.startZ;
-            }
+            setMovementActive(toggle, toggle.checkbox.checked);
             toggle.checkbox.blur();
         });
     });
     window.addEventListener("keydown", event => {
         const toggle = movementToggles.find(item => item.key === event.key);
         if (!toggle || event.repeat) return;
-        toggle.checkbox.checked = !toggle.checkbox.checked;
-        toggle.active = toggle.checkbox.checked;
-        if (!toggle.active) {
-            toggle.distance = 0;
-            toggle.matrix[12] = toggle.startX;
-            toggle.matrix[14] = toggle.startZ;
-        }
+        setMovementActive(toggle, !toggle.active);
         event.preventDefault();
     });
+
+    const rotationToggles = [
+        { key: "8", name: "mouthe", matrix: mouthe.POSITION_MATRIX, checkbox: document.getElementById("rotateMouthe") },
+        { key: "9", name: "gundog", matrix: gundog.POSITION_MATRIX, checkbox: document.getElementById("rotateGundog") },
+        { key: "0", name: "knifo", matrix: knifo.MOVE_MATRIX, checkbox: document.getElementById("rotateKnifo") }
+    ];
+    const setRotationActive = (toggle, active) => {
+        const rotation = CHARACTER_MOTION[toggle.name].rotation;
+        if (active && toggle.angle >= rotation.angle) {
+            LIBS.rotateY(toggle.matrix, -rotation.direction * toggle.angle);
+            toggle.angle = 0;
+        }
+        toggle.active = active && rotation.angle > 0;
+        toggle.checkbox.checked = toggle.active;
+    };
+    rotationToggles.forEach(toggle => {
+        toggle.angle = 0;
+        toggle.active = false;
+        toggle.checkbox.checked = false;
+        toggle.checkbox.addEventListener("change", () => {
+            setRotationActive(toggle, toggle.checkbox.checked);
+            toggle.checkbox.blur();
+        });
+    });
+    window.addEventListener("keydown", event => {
+        const toggle = rotationToggles.find(item => item.key === event.key);
+        if (!toggle || event.repeat) return;
+        setRotationActive(toggle, !toggle.active);
+        event.preventDefault();
+    });
+
+    // if (KNIFO_SCENE.autoStart) {
+    //     const knifoMovement = movementToggles.find(item => item.name === "knifo");
+    //     setMovementActive(knifoMovement, true);
+    // }
 
     const startTime = performance.now();
     let previousFrameTime = startTime;
@@ -460,6 +612,10 @@ function main() {
         const now = performance.now();
         const deltaTime = Math.min((now - previousFrameTime) / 1000, 0.1);
         previousFrameTime = now;
+        if (now - lastCameraSave >= 250) {
+            saveCameraState();
+            lastCameraSave = now;
+        }
 
         const forward = Number(pressedKeys.has("w")) - Number(pressedKeys.has("s"));
         const strafe = Number(pressedKeys.has("d")) - Number(pressedKeys.has("a"));
@@ -473,9 +629,35 @@ function main() {
 
         movementToggles.forEach(toggle => {
             if (!toggle.active) return;
-            toggle.distance += CHARACTER_FORWARD_SPEED * deltaTime;
-            toggle.matrix[12] = toggle.startX + toggle.direction.x * toggle.distance;
-            toggle.matrix[14] = toggle.startZ + toggle.direction.z * toggle.distance;
+            const forward = CHARACTER_MOTION[toggle.name].forward;
+            toggle.distance = Math.min(forward.distance, toggle.distance + forward.speed * deltaTime);
+            const rotation = rotationToggles.find(item => item.name === toggle.name);
+            const currentYaw = CHARACTER_YAWS[toggle.name]
+                + (rotation ? CHARACTER_MOTION[toggle.name].rotation.direction * rotation.angle : 0);
+            const direction = forwardFromYaw(currentYaw, toggle.localDirection);
+            toggle.matrix[12] = toggle.startX + direction.x * toggle.distance;
+            toggle.matrix[14] = toggle.startZ + direction.z * toggle.distance;
+            if (toggle.distance >= forward.distance) {
+                toggle.active = false;
+                toggle.checkbox.checked = false;
+                if (toggle.name === "knifo" && KNIFO_SCENE.sequencePending) {
+                    KNIFO_SCENE.sequencePending = false;
+                    knifo.animationOn = false;
+                    animationToggles.find(item => item.character === knifo).checkbox.checked = false;
+                }
+            }
+        });
+
+        rotationToggles.forEach(toggle => {
+            if (!toggle.active) return;
+            const rotation = CHARACTER_MOTION[toggle.name].rotation;
+            const step = Math.min(rotation.speed * deltaTime, rotation.angle - toggle.angle);
+            LIBS.rotateY(toggle.matrix, rotation.direction * step);
+            toggle.angle += step;
+            if (toggle.angle >= rotation.angle) {
+                toggle.active = false;
+                toggle.checkbox.checked = false;
+            }
         });
 
         GL.clearColor(1, 1, 1, 1);
@@ -489,16 +671,17 @@ function main() {
         VIEWMATRIX[14] = -(VIEWMATRIX[2] * camera.x + VIEWMATRIX[6] * camera.y + VIEWMATRIX[10] * camera.z);
         GL.uniformMatrix4fv(_Vmatrix, false, VIEWMATRIX);
 
-        mouthe.animasi((performance.now() - startTime) / 1000);   // detik
+        const elapsedSeconds = (now - startTime) / 1000;
+        mouthe.animasi(elapsedSeconds * ANIMATION_SPEED.mouthe);
         mouthe.render(LIBS.get_I4());                              // akar dipanggil dengan matriks identitas
         environment.render(LIBS.get_I4());
 
         // gundog (shader & kamera sama)
-        gundog.animasi(performance.now());                              // gundog memakai milidetik
+        gundog.animasi(now * ANIMATION_SPEED.gundog);                   // gundog memakai milidetik
         gundog.render(LIBS.get_I4());
 
         // knifo memakai waktu dalam detik, seperti Mouthe
-        knifo.animasi((now - startTime) / 1000);
+        knifo.animasi(elapsedSeconds * ANIMATION_SPEED.knifo);
         knifo.render(LIBS.get_I4());
 
         window.requestAnimationFrame(animate);
