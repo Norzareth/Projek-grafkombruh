@@ -145,25 +145,25 @@ const FRAGMENT_SHADER = `
 // R7: X[156, 220], Z[-4, 60]
 // Atur posisi karakter secara manual hanya dengan x dan z.
 const GUNDOG = {
-    x: -180, z: 140,
+    x: -180, z: 142,
     footY: -1.7,
     faceCharacter: true,
     target: "mouthe",
     rotationY: 0 // rotasi tambahan di sumbu Y, radian (90 derajat = Math.PI / 2)
 };
 const KNIFO = {
-    x: 75, z: 80,
+    x: -180, z: 142,
     footY: 0,
-    faceCharacter: false,
+    faceCharacter: true,
     target: "mouthe",
-    rotationY: 4.85
+    rotationY: 0
 };
 const MOUTHE = {
-    x: -180, z: 125,
+    x: -180, z: 130,
     footY: -5.88,
-    faceCharacter: true,
+    faceCharacter: false,
     target: "gundog",
-    rotationY: 3.29
+    rotationY: 3.15
 };
 const CHARACTER_PLACEMENTS = { mouthe: MOUTHE, gundog: GUNDOG, knifo: KNIFO };
 const CHARACTER_FORWARD = { mouthe: 1, gundog: -1, knifo: 1 };
@@ -209,9 +209,9 @@ const CHARACTER_SCALE = {
 // Pengali kecepatan animasi: 1 = normal, 2 = dua kali lebih cepat,
 // 0.5 = setengah kecepatan. Nilai 0 menghentikan animasi tanpa mematikan toggle.
 const ANIMATION_SPEED = {
-    mouthe: 1,
-    gundog: 1,
-    knifo: 3
+    mouthe: 2,
+    gundog: 2,
+    knifo: 1.5
 };
 const MOUTHE_FOOT_Y = -5.88; // perkiraan posisi telapak Mouthe dari akar pada pose berdiri
 const CHARACTER_FORWARD_SPEED = 20; // satuan dunia per detik
@@ -225,11 +225,11 @@ const CHARACTER_MOTION = {
         rotation: { direction: 1, angle: Math.PI * 2, speed: Math.PI / 4 }
     },
     gundog: {
-        forward: { distance: 30, speed: CHARACTER_FORWARD_SPEED },
+        forward: { distance: 1000, speed: CHARACTER_FORWARD_SPEED },
         rotation: { direction: 1, angle: Math.PI * 2, speed: Math.PI / 4 }
     },
     knifo: {
-        forward: { distance: 100, speed: CHARACTER_FORWARD_SPEED },
+        forward: { distance: 1000, speed: CHARACTER_FORWARD_SPEED },
         rotation: { direction: 1, angle: Math.PI / 2, speed: Math.PI / 2 }
     }
 };
