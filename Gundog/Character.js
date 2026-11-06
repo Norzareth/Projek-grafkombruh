@@ -230,6 +230,7 @@ export class Character extends MyObject {
         var armor = 0.80;
         var armorLight = 0.68;
         var armorShade = 0.68;
+        var armorDark = 0.3;
         var dark = 0.15;
         var red = [0.85, 0.08, 0.07];   // mata & mulut berwarna merah (satu-satunya bagian berwarna)
 
@@ -284,6 +285,8 @@ export class Character extends MyObject {
         var mouth = this.addMesh(createBezierTube(mouthCurve, 0.03), red, 0, 0, -0.255, false);
         head.childs.push(mouth);
 
+        var face = this.addMesh(createPrism(headOutlineDepan, headOutlineDepan, 0.02), armorDark, 0, 0, -0.25);
+        head.childs.push(face);
         // turret
         //turret ring
         var turretRing = this.addMesh(createCylinder(0.31, 0.16), armorShade, 0, 0.52, 0.12);

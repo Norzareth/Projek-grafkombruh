@@ -60,17 +60,43 @@ const FRAGMENT_SHADER = `
 const GUNDOG = {
     x: 11, z: 6,               // posisi di ruang awal (karakter pertama ada di 0, 0)
     footY: -1.7,              // tinggi telapak kaki gundog pada ukuran aslinya (ditaruh tepat di lantai)
-    faceCharacter: true        // true = moncong menghadap karakter pertama
+    faceCharacter: true,
+    target: "knifo",
+    yaw: 0
 };
 const KNIFO = {
     x: -12, z: 6,
     footY: 0,
+    faceCharacter: true,
+    target: "mouthe",
     yaw: 0
 };
 const MOUTHE = {
     x: 0, z: 0,
-    footY: -5.88
+    footY: -5.88,
+    faceCharacter: true,
+    target: "knifo",
+    yaw: 0
 };
+const CHARACTER_PLACEMENTS = { mouthe: MOUTHE, gundog: GUNDOG, knifo: KNIFO };
+const CHARACTER_FORWARD = { mouthe: 1, gundog: -1, knifo: 1 };
+
+function characterYaw(name) {
+    const character = CHARACTER_PLACEMENTS[name];
+    if (!character.faceCharacter) return character.yaw;
+
+    const target = CHARACTER_PLACEMENTS[character.target];
+    if (!target || target === character) {
+        throw new Error(`Invalid facing target "${character.target}" for ${name}.`);
+    }
+
+    const dx = target.x - character.x;
+    const dz = target.z - character.z;
+    if (dx === 0 && dz === 0) return character.yaw;
+
+    const forward = CHARACTER_FORWARD[name];
+    return Math.atan2(forward * dx, forward * dz);
+}
 // Skala seragam per karakter. Ubah angka ini untuk memperbesar atau memperkecil model.
 const CHARACTER_SCALE = {
     mouthe: 1,
@@ -126,11 +152,11 @@ function main() {
     const pressedKeys = new Set();
     let moveSpeed = 12;
     const MOVE_SPEED_MIN = 1;
-    const MOVE_SPEED_MAX = 60;
+    const MOVE_SPEED_MAX = 100;
     const MOUSE_SENSITIVITY = 0.0025;
     let lookSensitivity = 1;
     const LOOK_SENSITIVITY_STEP = 0.1;
-    const LOOK_SENSITIVITY_MIN = 0.2;
+    const LOOK_SENSITIVITY_MIN = 0.01;
     const LOOK_SENSITIVITY_MAX = 4;
     const PITCH_LIMIT = Math.PI / 2 - 0.01;
     const controls = document.getElementById("cameraControls");
@@ -197,11 +223,17 @@ function main() {
     };
 
     /*===== KARAKTER =====*/
+
+    //
+    //mouthe
+    // 
+
     const mouthe = new Mouthe(GL, SHADER_PROGRAM, locations);
     mouthe.setup();                   // kirim semua bagian ke GPU (rekursif lewat childs)
     for (const scale of [LIBS.scaleX, LIBS.scaleY, LIBS.scaleZ]) {
         scale(mouthe.POSITION_MATRIX, CHARACTER_SCALE.mouthe);
     }
+    LIBS.rotateY(mouthe.POSITION_MATRIX, characterYaw("mouthe"));
     LIBS.set_position(
         mouthe.POSITION_MATRIX,
         MOUTHE.x,
@@ -212,14 +244,18 @@ function main() {
     const environment = new Environment(GL, SHADER_PROGRAM, locations);   // maze (environment.js)
     environment.setup();
 
+
+    //
     // gundog: memakai shader, kamera, dan arsiran yang sama dengan karakter pertama & maze
+    //
+
     const gundog = new Gundog(GL, SHADER_PROGRAM, locations);
     gundog.setup();
     // letak gundog: skala -> putar -> geser (urutan ini penting karena LIBS.scale hanya mengisi diagonal)
     LIBS.scaleX(gundog.POSITION_MATRIX, CHARACTER_SCALE.gundog);
     LIBS.scaleY(gundog.POSITION_MATRIX, CHARACTER_SCALE.gundog);
     LIBS.scaleZ(gundog.POSITION_MATRIX, CHARACTER_SCALE.gundog);
-    if (GUNDOG.faceCharacter) LIBS.rotateY(gundog.POSITION_MATRIX, Math.atan2(GUNDOG.x, GUNDOG.z));   // moncong gundog ke -z lokal
+    LIBS.rotateY(gundog.POSITION_MATRIX, characterYaw("gundog"));
     LIBS.set_position(
         gundog.POSITION_MATRIX,
         GUNDOG.x,
@@ -227,9 +263,17 @@ function main() {
         GUNDOG.z
     );
 
+
+    //
+    //knifo
+    //
+
     const knifo = new Knifo(GL, SHADER_PROGRAM, locations);
     knifo.setup();
-    knifo.setWorld(KNIFO.x, environment.floorY - Knifo.FOOT_Y, KNIFO.z, KNIFO.yaw, CHARACTER_SCALE.knifo);
+    knifo.setWorld(KNIFO.x, environment.floorY - Knifo.FOOT_Y, KNIFO.z, characterYaw("knifo"), CHARACTER_SCALE.knifo);
+
+
+
 
     /*===== TOGGLE ANIMASI: satu per karakter, saling terpisah =====
        Tombol [1] atau kotak centang "Mouthe"  -> hanya menyalakan/mematikan animasi Mouthe (karakter pertama)
