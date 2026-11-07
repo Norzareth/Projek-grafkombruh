@@ -3,12 +3,22 @@ import { Character as Mouthe } from "./Mouthe/Character.js";   // karakter perta
 import { Environment } from "./environment.js";
 import { Character as Gundog } from "./Gundog/Character.js";   // karakter kedua (Gundog)
 import { Character as Knifo } from "./Knifo/Character.js";     // karakter ketiga (Knifo)
+import { Tile } from "./Tile.js";
+
+// Edit this single object to place the image overlay. Keep it on the floor plane.
+const TILE_CONFIG = {
+    x: -520, y: -4.85, z: 110,
+    width: 20, depth: 20,
+    image: "./rangtu.jpeg",
+    opacity: 0.5
+};
 
 // ===== SHADER (cahaya sederhana + arsiran abu-abu) =====
 const VERTEX_SHADER = `
     attribute vec3 a_position;
     attribute vec3 a_normal;
     attribute vec3 a_vertexColor;
+    attribute vec2 a_uv;
     uniform mat4 u_projection;
     uniform mat4 u_view;
     uniform mat4 u_model;
@@ -16,6 +26,7 @@ const VERTEX_SHADER = `
     varying vec3 v_vertexColor;
     varying vec3 v_worldPosition;
     varying vec3 v_worldNormal;
+    varying vec2 v_uv;
     void main(void) {
         vec4 worldPosition = u_model * vec4(a_position, 1.0);
         gl_Position = u_projection * u_view * worldPosition;
@@ -23,6 +34,7 @@ const VERTEX_SHADER = `
         v_vertexColor = a_vertexColor;
         v_worldPosition = worldPosition.xyz;
         v_worldNormal = mat3(u_model) * a_normal;
+        v_uv = a_uv;
     }
 `;
 
@@ -32,8 +44,12 @@ const FRAGMENT_SHADER = `
     varying vec3 v_vertexColor;
     varying vec3 v_worldPosition;
     varying vec3 v_worldNormal;
+    varying vec2 v_uv;
     uniform vec3 u_color;
     uniform float u_hatch;      // material: 2 lantai, 3 dinding, 4 rangka pilar
+    uniform float u_hasTexture;
+    uniform float u_textureOpacity;
+    uniform sampler2D u_texture;
     uniform vec3 u_redLightPosition;
     uniform vec3 u_redLightDirection;
     uniform float u_redLightEnabled;
@@ -132,6 +148,11 @@ const FRAGMENT_SHADER = `
                            + lineB * smoothstep(0.5, 0.8, darkness) * 0.35;
             float grain = (hash(floor(pixel)) - 0.5) * 0.08;
             color = color * (1.0 - hatching) + grain;
+        }
+        if (u_hasTexture > 0.5) {
+            vec4 imageColor = texture2D(u_texture, v_uv);
+            gl_FragColor = vec4(clamp(color * imageColor.rgb, 0.0, 1.0), imageColor.a * u_textureOpacity);
+            return;
         }
         gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
     }
@@ -277,9 +298,13 @@ function main() {
         position: GL.getAttribLocation(SHADER_PROGRAM, "a_position"),
         normal:   GL.getAttribLocation(SHADER_PROGRAM, "a_normal"),
         vertexColor: GL.getAttribLocation(SHADER_PROGRAM, "a_vertexColor"),
+        uv: GL.getAttribLocation(SHADER_PROGRAM, "a_uv"),
         model:    GL.getUniformLocation(SHADER_PROGRAM, "u_model"),
         color:    GL.getUniformLocation(SHADER_PROGRAM, "u_color"),
         hatching: GL.getUniformLocation(SHADER_PROGRAM, "u_hatch"),
+        hasTexture: GL.getUniformLocation(SHADER_PROGRAM, "u_hasTexture"),
+        textureOpacity: GL.getUniformLocation(SHADER_PROGRAM, "u_textureOpacity"),
+        texture: GL.getUniformLocation(SHADER_PROGRAM, "u_texture"),
         redLightPosition: GL.getUniformLocation(SHADER_PROGRAM, "u_redLightPosition"),
         redLightDirection: GL.getUniformLocation(SHADER_PROGRAM, "u_redLightDirection"),
         redLightEnabled: GL.getUniformLocation(SHADER_PROGRAM, "u_redLightEnabled"),
@@ -288,6 +313,8 @@ function main() {
     GL.enableVertexAttribArray(locations.position);
     GL.enableVertexAttribArray(locations.normal);
     GL.enableVertexAttribArray(locations.vertexColor);
+    GL.disableVertexAttribArray(locations.uv);
+    GL.vertexAttrib2f(locations.uv, 0, 0);
     GL.uniform3f(locations.redLightPosition, 0, 0, 0);
     GL.uniform3f(locations.redLightDirection, 0, 0, -1);
     GL.uniform1f(locations.redLightEnabled, 0);
@@ -467,6 +494,8 @@ function main() {
 
     const environment = new Environment(GL, SHADER_PROGRAM, locations);   // maze (environment.js)
     environment.setup();
+    const tile = new Tile(GL, SHADER_PROGRAM, locations, TILE_CONFIG);
+    tile.setup();
     validateCharacterPositions();
     const roofToggle = document.getElementById("toggleRoof");
     roofToggle.checked = environment.roof.visible;
@@ -951,6 +980,7 @@ function main() {
 
         mouthe.render(LIBS.get_I4());                              // akar dipanggil dengan matriks identitas
         environment.render(LIBS.get_I4());
+        tile.render(LIBS.get_I4());
 
         // knifo memakai waktu dalam detik, seperti Mouthe
         knifo.render(LIBS.get_I4());

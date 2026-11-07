@@ -48,3 +48,17 @@ combination of characters to make them run continuously around their respective
 points while facing their direction of travel. Stop an orbit before changing
 that character's settings. Its regular animation resumes in its previous
 on/off state when the orbit stops.
+
+## PNG floor tile
+
+The single PNG floor tile is configured with `TILE_CONFIG` near the top of
+`main.js`. Set its center `x`, `y`, and `z`, its `width` and `depth`, and the
+image `opacity` from `0` (invisible) to `1` (fully opaque). Put the PNG at
+`tile.png` beside `index.html`, or replace `image` with a PNG URL or data URL:
+
+```js
+image: "data:image/png;base64,PASTE_PNG_BASE64_HERE"
+```
+
+The tile uses the floor's shading and color; white parts of the PNG match the
+floor, and transparent PNG pixels leave the floor visible.

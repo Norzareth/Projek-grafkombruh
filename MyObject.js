@@ -15,6 +15,7 @@ export class MyObject {
     vertex = [];
     normals = [];
     vertexColors = [];
+    vertexUVs = [];
     faces = [];
     brightness = 0.8;                 // kecerahan abu-abu (0..1)
     color = null;                     // [r, g, b] bila bagian ini berwarna (mengganti abu-abu)
@@ -25,6 +26,8 @@ export class MyObject {
     OBJECT_VERTEX = null;
     OBJECT_COLOR = null;
     OBJECT_FACES = null;
+    OBJECT_UV = null;
+    texture = null;
 
     POSITION_MATRIX = LIBS.get_I4();
     MOVE_MATRIX = LIBS.get_I4();
@@ -65,6 +68,12 @@ export class MyObject {
         this.GL.bindBuffer(this.GL.ELEMENT_ARRAY_BUFFER, this.OBJECT_FACES);
         this.GL.bufferData(this.GL.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.faces), this.GL.STATIC_DRAW);
 
+        if (this.vertexUVs.length > 0) {
+            this.OBJECT_UV = this.GL.createBuffer();
+            this.GL.bindBuffer(this.GL.ARRAY_BUFFER, this.OBJECT_UV);
+            this.GL.bufferData(this.GL.ARRAY_BUFFER, new Float32Array(this.vertexUVs), this.GL.STATIC_DRAW);
+        }
+
         this.childs.forEach(child => child.setup());
     }
 
@@ -85,6 +94,9 @@ export class MyObject {
             const [r, g, b] = this.color || [this.brightness, this.brightness, this.brightness];
             this.GL.uniform3f(this.locations.color, r, g, b);
             this.GL.uniform1f(this.locations.hatching, this.hatching);
+            const hasTexture = Boolean(this.textureReady && this.OBJECT_UV);
+            this.GL.uniform1f(this.locations.hasTexture, hasTexture ? 1 : 0);
+            this.GL.uniform1f(this.locations.textureOpacity, this.opacity ?? 1);
 
             this.GL.bindBuffer(this.GL.ARRAY_BUFFER, this.OBJECT_VERTEX);
             this.GL.vertexAttribPointer(this.locations.position, 3, this.GL.FLOAT, false, 24, 0);    // 6 angka x 4 byte
@@ -92,6 +104,18 @@ export class MyObject {
 
             this.GL.bindBuffer(this.GL.ARRAY_BUFFER, this.OBJECT_COLOR);
             this.GL.vertexAttribPointer(this.locations.vertexColor, 3, this.GL.FLOAT, false, 0, 0);
+
+            if (hasTexture) {
+                this.GL.activeTexture(this.GL.TEXTURE0);
+                this.GL.bindTexture(this.GL.TEXTURE_2D, this.texture);
+                this.GL.uniform1i(this.locations.texture, 0);
+                this.GL.bindBuffer(this.GL.ARRAY_BUFFER, this.OBJECT_UV);
+                this.GL.vertexAttribPointer(this.locations.uv, 2, this.GL.FLOAT, false, 0, 0);
+                this.GL.enableVertexAttribArray(this.locations.uv);
+            } else {
+                this.GL.disableVertexAttribArray(this.locations.uv);
+                this.GL.vertexAttrib2f(this.locations.uv, 0, 0);
+            }
 
             this.GL.bindBuffer(this.GL.ELEMENT_ARRAY_BUFFER, this.OBJECT_FACES);
             this.GL.drawElements(this.GL.TRIANGLES, this.faces.length, this.GL.UNSIGNED_SHORT, 0);
