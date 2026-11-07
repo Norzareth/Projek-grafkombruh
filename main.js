@@ -139,31 +139,31 @@ const FRAGMENT_SHADER = `
 
 // Koordinat karakter memakai posisi dunia X/Z (Y dihitung dari FLOOR_Y dan footY).
 // Batas ruang dari MAZE_LAYOUT saat ini, format X[min, max], Z[min, max]:
-// R1: X[-32, 32],   Z[-32, 32]       R2: X[-136, -72], Z[52, 116]
-// R3: X[72, 136],   Z[52, 116]        R4: X[-220, -156], Z[108, 172]
-// R5: X[-220, -156], Z[-4, 60]        R6: X[156, 220], Z[108, 172]
-// R7: X[156, 220], Z[-4, 60]
+// R1: X[-50, 50],   Z[-32, 32]       R2: X[-172, -72], Z[64, 164]
+// R3: X[72, 172],   Z[64, 164]        R4: X[-572, -472], Z[164, 228]
+// R5: X[-572, -472], Z[0, 64]         R6: X[472, 572], Z[164, 228]
+// R7: X[472, 572], Z[0, 64]
 // Atur posisi karakter secara manual hanya dengan x dan z.
 const GUNDOG = {
-    x: -180, z: 142,
+    x: -515, z: 140,
     footY: -1.7,
     faceCharacter: true,
-    target: "mouthe",
+    target: "knifo",
     rotationY: 0 // rotasi tambahan di sumbu Y, derajat
 };
 const KNIFO = {
-    x: -180, z: 142,
+    x: -500, z: 140,
     footY: 0,
-    faceCharacter: true,
+    faceCharacter: false,
     target: "mouthe",
-    rotationY: 0
+    rotationY: 90
 };
 const MOUTHE = {
-    x: -180, z: 130,
+    x: -530, z: 140,
     footY: -5.88,
-    faceCharacter: false,
-    target: "gundog",
-    rotationY: 3.15
+    faceCharacter: true,
+    target: "knifo",
+    rotationY: 0
 };
 const CHARACTER_PLACEMENTS = { mouthe: MOUTHE, gundog: GUNDOG, knifo: KNIFO };
 const CHARACTER_FORWARD = { mouthe: 1, gundog: -1, knifo: 1 };
@@ -209,27 +209,27 @@ const CHARACTER_SCALE = {
 // Pengali kecepatan animasi: 1 = normal, 2 = dua kali lebih cepat,
 // 0.5 = setengah kecepatan. Nilai 0 menghentikan animasi tanpa mematikan toggle.
 const ANIMATION_SPEED = {
-    mouthe: 2,
-    gundog: 2,
-    knifo: 1.5
+    mouthe: 4,
+    gundog: 4,
+    knifo: 3
 };
 const MOUTHE_FOOT_Y = -5.88; // perkiraan posisi telapak Mouthe dari akar pada pose berdiri
-const CHARACTER_FORWARD_SPEED = 20; // satuan dunia per detik
+const CHARACTER_FORWARD_SPEED = 50; // satuan dunia per detik
 // Gerak maju dan rotasi otomatis tiap karakter.
 // forward.distance dalam satuan dunia; rotation.angle dalam radian.
 // rotation.direction: 1 = putar positif Y (dari +Z menuju +X), -1 = arah sebaliknya.
 // rotation.speed dalam radian per detik.
 const CHARACTER_MOTION = {
     mouthe: {
-        forward: { distance: 1000, speed: CHARACTER_FORWARD_SPEED },
+        forward: { distance: 10000, speed: CHARACTER_FORWARD_SPEED },
         rotation: { direction: 1, angle: Math.PI * 2, speed: Math.PI / 4 }
     },
     gundog: {
-        forward: { distance: 1000, speed: CHARACTER_FORWARD_SPEED },
+        forward: { distance: 10000, speed: CHARACTER_FORWARD_SPEED },
         rotation: { direction: 1, angle: Math.PI * 2, speed: Math.PI / 4 }
     },
     knifo: {
-        forward: { distance: 1000, speed: CHARACTER_FORWARD_SPEED },
+        forward: { distance: 10000, speed: CHARACTER_FORWARD_SPEED },
         rotation: { direction: 1, angle: Math.PI / 2, speed: Math.PI / 2 }
     }
 };
@@ -522,6 +522,72 @@ function main() {
     knifo.setWorld(KNIFO.x, environment.floorY - Knifo.FOOT_Y, KNIFO.z, CHARACTER_YAWS.knifo, CHARACTER_SCALE.knifo);
     knifo.animationOn = true;
 
+    const scaleToggles = [
+        {
+            key: "q",
+            name: "mouthe",
+            matrix: mouthe.POSITION_MATRIX,
+            checkbox: document.getElementById("scaleMouthe"),
+            baseScale: CHARACTER_SCALE.mouthe,
+            footY: MOUTHE.footY
+        },
+        {
+            key: "r",
+            name: "gundog",
+            matrix: gundog.POSITION_MATRIX,
+            checkbox: document.getElementById("scaleGundog"),
+            baseScale: CHARACTER_SCALE.gundog,
+            footY: GUNDOG.footY
+        },
+        {
+            key: "t",
+            name: "knifo",
+            matrix: knifo.MOVE_MATRIX,
+            checkbox: document.getElementById("scaleKnifo"),
+            baseScale: CHARACTER_SCALE.knifo,
+            footY: Knifo.FOOT_Y
+        }
+    ];
+    const SCALE_ANIMATION_DURATION = 0.35;
+    const setCharacterScale = (toggle, nextScale) => {
+        const ratio = nextScale / toggle.currentScale;
+        for (let column = 0; column < 3; column++) {
+            for (let row = 0; row < 3; row++) {
+                toggle.matrix[column * 4 + row] *= ratio;
+            }
+        }
+        toggle.matrix[13] = toggle.footAnchorY - toggle.footY * nextScale;
+        toggle.currentScale = nextScale;
+        if (followedCharacter && followedCharacter.getMatrix() === toggle.matrix) {
+            followedCharacter.lastPosition[1] = toggle.matrix[13];
+        }
+    };
+    const setScaleActive = (toggle, active) => {
+        toggle.startScale = toggle.currentScale;
+        toggle.targetScale = toggle.baseScale * (active ? 1.5 : 1);
+        toggle.elapsed = 0;
+        toggle.active = active;
+        toggle.checkbox.checked = active;
+    };
+    scaleToggles.forEach(toggle => {
+        toggle.currentScale = toggle.baseScale;
+        toggle.startScale = toggle.baseScale;
+        toggle.targetScale = toggle.baseScale;
+        toggle.elapsed = SCALE_ANIMATION_DURATION;
+        toggle.footAnchorY = toggle.matrix[13] + toggle.footY * toggle.baseScale;
+        toggle.active = false;
+        toggle.checkbox.checked = false;
+        toggle.checkbox.addEventListener("change", () => {
+            setScaleActive(toggle, toggle.checkbox.checked);
+            toggle.checkbox.blur();
+        });
+    });
+    window.addEventListener("keydown", event => {
+        const toggle = scaleToggles.find(item => item.key === event.key.toLowerCase());
+        if (!toggle || event.repeat) return;
+        setScaleActive(toggle, !toggle.active);
+        event.preventDefault();
+    });
 
 
 
@@ -697,6 +763,17 @@ function main() {
             * moveSpeed * deltaTime / moveLength;
         camera.y += (Number(pressedKeys.has(" ")) - Number(pressedKeys.has("shift")))
             * moveSpeed * deltaTime;
+
+        scaleToggles.forEach(toggle => {
+            if (toggle.currentScale === toggle.targetScale) return;
+            toggle.elapsed = Math.min(SCALE_ANIMATION_DURATION, toggle.elapsed + deltaTime);
+            const progress = toggle.elapsed / SCALE_ANIMATION_DURATION;
+            const easedProgress = progress * progress * (3 - 2 * progress);
+            const nextScale = toggle.elapsed === SCALE_ANIMATION_DURATION
+                ? toggle.targetScale
+                : toggle.startScale + (toggle.targetScale - toggle.startScale) * easedProgress;
+            setCharacterScale(toggle, nextScale);
+        });
 
         movementToggles.forEach(toggle => {
             if (!toggle.active) return;

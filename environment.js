@@ -38,24 +38,24 @@ import { CrateStack, CRATE_STACKS } from "./CrateStack.js";
 // ===== UKURAN MAZE (satuan dunia) =====
 const MAZE_LAYOUT = {
     // segment 1 pertama: ruangan awal
-    R1: { width: 80, depth: 64 },
+    R1: { width: 100, depth: 64 },
     // segment 2 & 3 (setelah R1): hallway lurus ke +z, lalu pertigaan ke kiri (R2) dan kanan (R3)
-    H1: { length: 32, width: 40 },
-    J1: { width: 40, toR2: 72, toR3: 72 },
-    R2: { width: 64, depth: 64 },
-    R3: { width: 64, depth: 64 },
+    H1: { length: 32, width: 100 },
+    J1: { width: 100, toR2: 72, toR3: 72 },
+    R2: { width: 100, depth: 100 },
+    R3: { width: 100, depth: 100 },
 
     // pengulangan dari R2: hallway menuju kiri (-x), pertigaan utara-selatan
-    H2: { length: 300, width: 40 },
-    J2: { width: 40, toR4: 24, toR5: 24 },
-    R4: { width: 64, depth: 64 },
-    R5: { width: 64, depth: 64 },
+    H2: { length: 300, width: 100 },
+    J2: { width: 100, toR4: 50, toR5: 50 },
+    R4: { width: 100, depth: 64 },
+    R5: { width: 100, depth: 64 },
 
     // pengulangan dari R3: hallway menuju kanan (+x), pertigaan utara-selatan
-    H3: { length: 300, width: 35 },
-    J3: { width: 40, toR6: 24, toR7: 24 },
-    R6: { width: 64, depth: 64 },
-    R7: { width: 64, depth: 64 }
+    H3: { length: 300, width: 100 },
+    J3: { width: 100, toR6: 50, toR7: 50 },
+    R6: { width: 100, depth: 64 },
+    R7: { width: 100, depth: 64 }
 };
 
 const WALL = {

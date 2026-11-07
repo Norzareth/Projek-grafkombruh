@@ -3,22 +3,22 @@ import * as Shape from "./Shapes.js";
 
 // Edit daftar ini untuk mengatur pilar di maze. width adalah diameter pilar.
 export const PILLARS = [
-    { x: -190, z: 142, width: 5, height: 50 },
-    { x: -190, z: 26, width: 4, height: 50 },
-    { x: 190, z: 142, width: 4, height: 50 },
-    { x: 190, z: 26, width: 5, height: 50 },
-    { x: 10, z: 98, width: 10, height: 32 },
-    { x: 100, z: 98, width: 10, height: 32 },
-    { x: -30, z: 98, width: 10, height: 32 },
-    { x: -170, z: 98, width: 10, height: 32 },
-    { x: 250, z: 98, width: 10, height: 32 },
-    { x: 370, z: 98, width: 10, height: 32 },
-    { x: 430, z: 98, width: 10, height: 32 },
-    { x: -90, z: 98, width: 10, height: 32 },
-    { x: -150, z: 98, width: 10, height: 32 },
-    { x: -360, z: 98, width: 10, height: 32 },
-    { x: -480, z: 98, width: 10, height: 32 },
-    { x: -270, z: 98, width: 10, height: 32 },
+    { x: -522, z: 196, width: 5, height: 50 },
+    { x: -522, z: 32, width: 4, height: 50 },
+    { x: 522, z: 196, width: 4, height: 50 },
+    { x: 522, z: 32, width: 5, height: 50 },
+    { x: 10, z: 158, width: 10, height: 32 },
+    { x: 100, z: 158, width: 10, height: 32 },
+    { x: -30, z: 158, width: 10, height: 32 },
+    { x: -206, z: 158, width: 10, height: 32 },
+    { x: 286, z: 158, width: 10, height: 32 },
+    { x: 406, z: 158, width: 10, height: 32 },
+    { x: 466, z: 158, width: 10, height: 32 },
+    { x: -90, z: 158, width: 10, height: 32 },
+    { x: -186, z: 158, width: 10, height: 32 },
+    { x: -396, z: 158, width: 10, height: 32 },
+    { x: -456, z: 158, width: 10, height: 32 },
+    { x: -306, z: 158, width: 10, height: 32 },
 
 ];
 
