@@ -46,13 +46,13 @@ const MAZE_LAYOUT = {
     R3: { width: 64, depth: 64 },
 
     // pengulangan dari R2: hallway menuju kiri (-x), pertigaan utara-selatan
-    H2: { length: 32, width: 40 },
+    H2: { length: 300, width: 40 },
     J2: { width: 40, toR4: 24, toR5: 24 },
     R4: { width: 64, depth: 64 },
     R5: { width: 64, depth: 64 },
 
     // pengulangan dari R3: hallway menuju kanan (+x), pertigaan utara-selatan
-    H3: { length: 32, width: 16 },
+    H3: { length: 300, width: 35 },
     J3: { width: 40, toR6: 24, toR7: 24 },
     R6: { width: 64, depth: 64 },
     R7: { width: 64, depth: 64 }
@@ -570,15 +570,11 @@ export class Environment extends MyObject {
             ));
         });
 
-        const roomsByName = new Map(rects.filter(rect => rect.kind === "room").map(room => [room.name, room]));
         CRATE_STACKS.forEach(config => {
-            const room = roomsByName.get(config.room);
-            if (!room) throw new Error(`Crate stack references unknown room "${config.room}".`);
             this.childs.push(new CrateStack(
                 this.GL,
                 this.SHADER_PROGRAM,
                 this.locations,
-                room,
                 config,
                 FLOOR_Y
             ));

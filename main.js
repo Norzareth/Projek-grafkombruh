@@ -548,6 +548,38 @@ function main() {
         toggle.character.animationOn = toggle.checkbox.checked;
     });
 
+    /*===== IKUTI GERAKAN KARAKTER: kamera bergerak mengikuti selisih posisi akar =====*/
+    const followToggles = [
+        { name: "mouthe", getMatrix: () => mouthe.POSITION_MATRIX, checkbox: document.getElementById("followMouthe") },
+        { name: "gundog", getMatrix: () => gundog.POSITION_MATRIX, checkbox: document.getElementById("followGundog") },
+        { name: "knifo", getMatrix: () => knifo.MOVE_MATRIX, checkbox: document.getElementById("followKnifo") }
+    ];
+    let followedCharacter = null;
+    const setFollowTarget = target => {
+        followToggles.forEach(toggle => {
+            toggle.checkbox.checked = toggle === target;
+        });
+        followedCharacter = target;
+        if (target) {
+            const matrix = target.getMatrix();
+            target.lastPosition = [matrix[12], matrix[13], matrix[14]];
+        }
+    };
+    followToggles.forEach(toggle => {
+        toggle.checkbox.addEventListener("change", () => {
+            setFollowTarget(toggle.checkbox.checked ? toggle : null);
+            toggle.checkbox.blur();
+        });
+    });
+    const followCharacterMovement = () => {
+        if (!followedCharacter) return;
+        const matrix = followedCharacter.getMatrix();
+        camera.x += matrix[12] - followedCharacter.lastPosition[0];
+        camera.y += matrix[13] - followedCharacter.lastPosition[1];
+        camera.z += matrix[14] - followedCharacter.lastPosition[2];
+        followedCharacter.lastPosition = [matrix[12], matrix[13], matrix[14]];
+    };
+
     /*===== TOGGLE GERAK MAJU: terpisah dari animasi pose =====*/
     const forwardFromYaw = (yaw, localDirection = 1) => ({
         x: localDirection * Math.sin(yaw),
@@ -699,6 +731,12 @@ function main() {
             }
         });
 
+        const elapsedSeconds = (now - startTime) / 1000;
+        gundog.animasi(now * ANIMATION_SPEED.gundog);                   // gundog memakai milidetik
+        mouthe.animasi(elapsedSeconds * ANIMATION_SPEED.mouthe);
+        knifo.animasi(elapsedSeconds * ANIMATION_SPEED.knifo);
+        followCharacterMovement();
+
         GL.clearColor(1, 1, 1, 1);
         GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT);
 
@@ -710,20 +748,16 @@ function main() {
         VIEWMATRIX[14] = -(VIEWMATRIX[2] * camera.x + VIEWMATRIX[6] * camera.y + VIEWMATRIX[10] * camera.z);
         GL.uniformMatrix4fv(_Vmatrix, false, VIEWMATRIX);
 
-        const elapsedSeconds = (now - startTime) / 1000;
-        gundog.animasi(now * ANIMATION_SPEED.gundog);                   // gundog memakai milidetik
         gundog.render(LIBS.get_I4());
         const barrelLight = gundog.getBarrelLight();
         GL.uniform3fv(locations.redLightPosition, barrelLight.position);
         GL.uniform3fv(locations.redLightDirection, barrelLight.direction);
         GL.uniform1f(locations.redLightEnabled, gundog.lightOn ? 1 : 0);
 
-        mouthe.animasi(elapsedSeconds * ANIMATION_SPEED.mouthe);
         mouthe.render(LIBS.get_I4());                              // akar dipanggil dengan matriks identitas
         environment.render(LIBS.get_I4());
 
         // knifo memakai waktu dalam detik, seperti Mouthe
-        knifo.animasi(elapsedSeconds * ANIMATION_SPEED.knifo);
         knifo.render(LIBS.get_I4());
 
         window.requestAnimationFrame(animate);

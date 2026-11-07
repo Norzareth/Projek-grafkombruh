@@ -1,56 +1,40 @@
 import { MyObject } from "./MyObject.js";
 import * as Shape from "./Shapes.js";
 
-// Ubah ukuran, skala, rotasi (radian), dan offset tiap tumpukan di sini.
-// R1/R2/R3/R5/R7 berujung di z minimum; R4/R6 berujung di z maksimum.
+// Posisi x/z adalah koordinat dunia, bukan posisi relatif terhadap ruangan.
 export const CRATE_STACKS = [
-    { room: "R1", end: "minZ", crateWidth: 4, crateHeight: 4, crateDepth: 4, scale: 1, rotation: 0, xOffset: 0, zOffset: 0 },
-    { room: "R2", end: "minZ", crateWidth: 4, crateHeight: 4, crateDepth: 4, scale: 1, rotation: 0, xOffset: 0, zOffset: 0 },
-    { room: "R3", end: "minZ", crateWidth: 4, crateHeight: 4, crateDepth: 4, scale: 1, rotation: 0, xOffset: 0, zOffset: 0 },
-    { room: "R4", end: "maxZ", crateWidth: 4, crateHeight: 4, crateDepth: 4, scale: 1, rotation: 0, xOffset: 0, zOffset: 0 },
-    { room: "R5", end: "minZ", crateWidth: 4, crateHeight: 4, crateDepth: 4, scale: 1, rotation: 0, xOffset: 0, zOffset: 0 },
-    { room: "R6", end: "maxZ", crateWidth: 4, crateHeight: 4, crateDepth: 4, scale: 1, rotation: 0, xOffset: 0, zOffset: 0 },
-    { room: "R7", end: "minZ", crateWidth: 4, crateHeight: 4, crateDepth: 4, scale: 1, rotation: 0, xOffset: 0, zOffset: 0 }
+    { x: 0, z: -27.5, crateWidth: 4, crateHeight: 4, crateDepth: 4, scale: 1, rotation: 0 },
+    { x: 104, z: 56.5, crateWidth: 4, crateHeight: 4, crateDepth: 4, scale: 1, rotation: 0 },
+    { x: -392, z: 167.5, crateWidth: 4, crateHeight: 4, crateDepth: 4, scale: 1, rotation: 0 },
+    { x: -392, z: 0.5, crateWidth: 4, crateHeight: 4, crateDepth: 4, scale: 1, rotation: 0 },
+    { x: 456, z: 167.5, crateWidth: 4, crateHeight: 4, crateDepth: 4, scale: 1, rotation: 0 },
+    { x: 200, z: 97, crateWidth: 4, crateHeight: 4, crateDepth: 4, scale: 1, rotation: 0.3 },
+    { x: 58, z: 97, crateWidth: 4, crateHeight: 4, crateDepth: 4, scale: 1, rotation: 0.1 },
+    { x: 174, z: 97, crateWidth: 4, crateHeight: 4, crateDepth: 4, scale: 1, rotation: 0.2 },
+    { x: 279, z: 97, crateWidth: 4, crateHeight: 4, crateDepth: 4, scale: 1, rotation: 0},
+    { x: 325, z: 97, crateWidth: 4, crateHeight: 4, crateDepth: 4, scale: 1, rotation: 0.1 },
+    { x: -200, z: 97, crateWidth: 4, crateHeight: 4, crateDepth: 4, scale: 1, rotation: -0.3 },
+    { x: -58, z: 97, crateWidth: 4, crateHeight: 4, crateDepth: 4, scale: 1, rotation: -0.1 },
+    { x: -174, z: 97, crateWidth: 4, crateHeight: 4, crateDepth: 4, scale: 1, rotation: -0.2 },
+    { x: -279, z: 97, crateWidth: 4, crateHeight: 4, crateDepth: 4, scale: 1, rotation: 0},
+    { x: -325, z: 97, crateWidth: 4, crateHeight: 4, crateDepth: 4, scale: 1, rotation: -0.1 },
+
 ];
 
-const END_WALL_CLEARANCE = 2.5;
-const SIDE_WALL_CLEARANCE = 2.5;
 const FRAME_BRIGHTNESS = 0.62;
 
 export class CrateStack extends MyObject {
-    constructor(GL, SHADER_PROGRAM, locations, room, config, floorY) {
+    constructor(GL, SHADER_PROGRAM, locations, config, floorY) {
         super(GL, SHADER_PROGRAM, locations);
 
         const {
-            end, crateWidth, crateHeight, crateDepth,
-            scale, rotation, xOffset, zOffset
+            x, z, crateWidth, crateHeight, crateDepth, scale, rotation
         } = config;
         const dimensions = [crateWidth, crateHeight, crateDepth, scale];
-        const coordinates = [rotation, xOffset, zOffset, floorY];
+        const coordinates = [x, z, rotation, floorY];
         if (!dimensions.every(value => Number.isFinite(value) && value > 0)
-            || !coordinates.every(Number.isFinite)
-            || (end !== "minZ" && end !== "maxZ")) {
-            throw new Error(`Invalid crate stack configuration for ${config.room}.`);
-        }
-
-        const scaledWidth = crateWidth * scale;
-        const scaledDepth = crateDepth * scale;
-        const halfFootprintX = (Math.abs(Math.cos(rotation)) * scaledWidth
-            + Math.abs(Math.sin(rotation)) * scaledDepth) / 2;
-        const halfFootprintZ = (Math.abs(Math.sin(rotation)) * scaledWidth
-            + Math.abs(Math.cos(rotation)) * scaledDepth) / 2;
-        const roomCenterX = (room.x0 + room.x1) / 2;
-        const roomCenterZ = (room.z0 + room.z1) / 2;
-        const x = roomCenterX + xOffset;
-        const z = end === "minZ"
-            ? room.z0 + halfFootprintZ + END_WALL_CLEARANCE + zOffset
-            : room.z1 - halfFootprintZ - END_WALL_CLEARANCE - zOffset;
-
-        if (x - halfFootprintX < room.x0 + SIDE_WALL_CLEARANCE
-            || x + halfFootprintX > room.x1 - SIDE_WALL_CLEARANCE
-            || z - halfFootprintZ < room.z0 + SIDE_WALL_CLEARANCE
-            || z + halfFootprintZ > room.z1 - SIDE_WALL_CLEARANCE) {
-            throw new Error(`Crate stack for ${config.room} does not fit inside the room.`);
+            || !coordinates.every(Number.isFinite)) {
+            throw new Error("Invalid crate stack configuration: dimensions and world coordinates must be finite.");
         }
 
         for (const scaleAxis of [LIBS.scaleX, LIBS.scaleY, LIBS.scaleZ]) {
