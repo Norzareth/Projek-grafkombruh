@@ -39,3 +39,12 @@ the mouse.
 Scroll the mouse wheel while the mouse is captured to adjust the speed of all
 movement controls. Press `-` to decrease mouse-look sensitivity or `=` to
 increase it.
+
+## Character orbit
+
+Use the **Orbit mengitari titik** controls to enter a separate center X/Z and
+radius for Mouthe, Gundog, and Knifo. Enable **Jalankan orbit** for any
+combination of characters to make them run continuously around their respective
+points while facing their direction of travel. Stop an orbit before changing
+that character's settings. Its regular animation resumes in its previous
+on/off state when the orbit stops.

@@ -19,6 +19,8 @@ export const PILLARS = [
     { x: -396, z: 158, width: 10, height: 32 },
     { x: -456, z: 158, width: 10, height: 32 },
     { x: -306, z: 158, width: 10, height: 32 },
+    { x: -520, z: 110, width: 20, height: 70 },
+
 
 ];
 

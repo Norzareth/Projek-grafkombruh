@@ -675,6 +675,10 @@ function main() {
         }
     ];
     const setMovementActive = (toggle, active) => {
+        if (active && orbitCharacters.some(item => item.name === toggle.name && item.orbit)) {
+            toggle.checkbox.checked = false;
+            return;
+        }
         if (active) {
             if (toggle.distance >= CHARACTER_MOTION[toggle.name].forward.distance) {
                 toggle.distance = 0;
@@ -714,6 +718,10 @@ function main() {
         { key: "0", name: "knifo", matrix: knifo.MOVE_MATRIX, checkbox: document.getElementById("rotateKnifo") }
     ];
     const setRotationActive = (toggle, active) => {
+        if (active && orbitCharacters.some(item => item.name === toggle.name && item.orbit)) {
+            toggle.checkbox.checked = false;
+            return;
+        }
         const rotation = CHARACTER_MOTION[toggle.name].rotation;
         if (active && toggle.angle >= rotation.angle) {
             LIBS.rotateY(toggle.matrix, -rotation.direction * toggle.angle);
@@ -736,6 +744,99 @@ function main() {
         if (!toggle || event.repeat) return;
         setRotationActive(toggle, !toggle.active);
         event.preventDefault();
+    });
+
+    const orbitCharacters = [
+        {
+            name: "mouthe", character: mouthe, matrix: mouthe.POSITION_MATRIX,
+            centerXInput: document.getElementById("orbitMoutheX"),
+            centerZInput: document.getElementById("orbitMoutheZ"),
+            radiusInput: document.getElementById("orbitMoutheRadius"),
+            checkbox: document.getElementById("orbitMoutheToggle"),
+            status: document.getElementById("orbitMoutheStatus")
+        },
+        {
+            name: "gundog", character: gundog, matrix: gundog.POSITION_MATRIX,
+            centerXInput: document.getElementById("orbitGundogX"),
+            centerZInput: document.getElementById("orbitGundogZ"),
+            radiusInput: document.getElementById("orbitGundogRadius"),
+            checkbox: document.getElementById("orbitGundogToggle"),
+            status: document.getElementById("orbitGundogStatus")
+        },
+        {
+            name: "knifo", character: knifo, matrix: knifo.MOVE_MATRIX,
+            centerXInput: document.getElementById("orbitKnifoX"),
+            centerZInput: document.getElementById("orbitKnifoZ"),
+            radiusInput: document.getElementById("orbitKnifoRadius"),
+            checkbox: document.getElementById("orbitKnifoToggle"),
+            status: document.getElementById("orbitKnifoStatus")
+        }
+    ];
+    const ORBIT_SPEED = Math.PI / 2;
+    const setOrbitActive = (toggle, active) => {
+        if (!active) {
+            if (toggle.orbit) {
+                CHARACTER_YAWS[toggle.name] = Math.atan2(toggle.matrix[8], toggle.matrix[10]);
+                toggle.character.animationOn = toggle.orbit.previousAnimationOn;
+                const animationToggle = animationToggles.find(item => item.character === toggle.character);
+                animationToggle.checkbox.checked = toggle.orbit.previousAnimationOn;
+            }
+            toggle.orbit = null;
+            toggle.checkbox.checked = false;
+            toggle.centerXInput.disabled = false;
+            toggle.centerZInput.disabled = false;
+            toggle.radiusInput.disabled = false;
+            toggle.status.textContent = "";
+            return;
+        }
+
+        const centerX = toggle.centerXInput.valueAsNumber;
+        const centerZ = toggle.centerZInput.valueAsNumber;
+        const radius = toggle.radiusInput.valueAsNumber;
+        if (!Number.isFinite(centerX) || !Number.isFinite(centerZ)
+            || !Number.isFinite(radius) || radius <= 0) {
+            toggle.checkbox.checked = false;
+            toggle.status.textContent = "Enter finite center coordinates and a radius greater than zero.";
+            return;
+        }
+
+        const movement = movementToggles.find(item => item.name === toggle.name);
+        const rotation = rotationToggles.find(item => item.name === toggle.name);
+        movement.active = false;
+        movement.distance = 0;
+        movement.startX = movement.matrix[12];
+        movement.startZ = movement.matrix[14];
+        movement.checkbox.checked = false;
+        rotation.active = false;
+        rotation.angle = 0;
+        rotation.checkbox.checked = false;
+
+        const dx = toggle.matrix[12] - centerX;
+        const dz = toggle.matrix[14] - centerZ;
+        toggle.orbit = {
+            centerX,
+            centerZ,
+            radius,
+            angle: Math.hypot(dx, dz) > 0 ? Math.atan2(dz, dx) : 0,
+            previousAnimationOn: toggle.character.animationOn
+        };
+        toggle.character.animationOn = true;
+        animationToggles.find(item => item.character === toggle.character).checkbox.checked = true;
+        toggle.centerXInput.disabled = true;
+        toggle.centerZInput.disabled = true;
+        toggle.radiusInput.disabled = true;
+        toggle.status.textContent = "Orbit is running. Stop it to change the settings.";
+        toggle.checkbox.checked = true;
+    };
+    orbitCharacters.forEach(toggle => {
+        toggle.orbit = null;
+        toggle.checkbox.checked = false;
+        toggle.checkbox.addEventListener("change", () => {
+            setOrbitActive(toggle, toggle.checkbox.checked);
+            toggle.checkbox.blur();
+        });
+        [toggle.centerXInput, toggle.centerZInput, toggle.radiusInput, toggle.checkbox]
+            .forEach(control => control.addEventListener("keydown", event => event.stopPropagation()));
     });
 
     // if (KNIFO_SCENE.autoStart) {
@@ -806,6 +907,23 @@ function main() {
                 toggle.active = false;
                 toggle.checkbox.checked = false;
             }
+        });
+
+        orbitCharacters.forEach(toggle => {
+            const orbit = toggle.orbit;
+            if (!orbit) return;
+            orbit.angle += ORBIT_SPEED * deltaTime;
+            const x = orbit.centerX + orbit.radius * Math.cos(orbit.angle);
+            const z = orbit.centerZ + orbit.radius * Math.sin(orbit.angle);
+            const direction = CHARACTER_FORWARD[toggle.name];
+            const yaw = Math.atan2(
+                direction * -Math.sin(orbit.angle),
+                direction * Math.cos(orbit.angle)
+            );
+            const currentYaw = Math.atan2(toggle.matrix[8], toggle.matrix[10]);
+            const yawDelta = Math.atan2(Math.sin(yaw - currentYaw), Math.cos(yaw - currentYaw));
+            LIBS.rotateY(toggle.matrix, yawDelta);
+            LIBS.set_position(toggle.matrix, x, toggle.matrix[13], z);
         });
 
         const elapsedSeconds = (now - startTime) / 1000;
