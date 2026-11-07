@@ -724,7 +724,7 @@ function main() {
         }
         const rotation = CHARACTER_MOTION[toggle.name].rotation;
         if (active && toggle.angle >= rotation.angle) {
-            LIBS.rotateY(toggle.matrix, -rotation.direction * toggle.angle);
+            CHARACTER_YAWS[toggle.name] = Math.atan2(toggle.matrix[8], toggle.matrix[10]);
             toggle.angle = 0;
         }
         toggle.active = active && rotation.angle > 0;
