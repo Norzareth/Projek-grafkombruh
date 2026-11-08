@@ -517,6 +517,9 @@ function scaleMatrix(sx, sy, sz) {
 }
 
 export class Character extends MyObject {
+    animationOn = true;   // toggle animasi
+    clock = 0;            // jam animasi Knifo (berhenti saat animationOn = false)
+    lastTime = null;
     constructor(GL, SHADER_PROGRAM, locations) {
         super(GL, SHADER_PROGRAM, locations);
 
@@ -803,9 +806,13 @@ export class Character extends MyObject {
 
     // animasi diam (time dalam detik)
     animasi(time) {
-        const t = time;
+        if (this.lastTime === null) this.lastTime = time;
+        if (this.animationOn) this.clock += time - this.lastTime;
+        this.lastTime = time;
 
-        // badan + kepala (satu mesh): napas, miring, naik-turun
+        if (!this.animationOn) return;   
+
+        const t = this.clock;
         const nafas = Math.sin(t * 2.5);
         const bodyM = scaleMatrix(1 + 0.03 * nafas, 1 + 0.015 * Math.sin(t * 2.5 + 0.6), 1 + 0.03 * nafas);
         const twist = rotateAxisMatrix([0.2, 1, 0.15], Math.sin(t * 1.2) * 0.12);
