@@ -1,6 +1,6 @@
 // karakter Knifo (Content Warning)
 
-import { MyObject } from "./MyObject.js";
+import { MyObject } from "../MyObject.js";
 import * as Shape from "../Shapes.js";
 
 // bilah pisau: profil 2D diberi ketebalan
