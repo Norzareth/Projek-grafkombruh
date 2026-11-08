@@ -1,57 +1,20 @@
-// ============================================================
-//  environment.js : maze 7 ruangan, dinding, dan lantai tidak rata
-//
-//  Denah dilihat dari atas (karakter menghadap +z, ke atas pada gambar):
-//
-//     [R4]                                                  [R6]
-//      |                                                     |
-//     [J2]--H2--[R2]                            [R3]--H3--[J3]
-//      |              \______  ______/                       |
-//     [R5]                   [J1]                           [R7]
-//                             |
-//                            [H1]
-//                             |
-//                            [R1]  <- ruangan awal (pusat di 0, 0)
-//
-//  Tiga segment yang berulang:  ruangan (R)  ->  hallway (H)  ->  pertigaan (J)  -> 2 ruangan baru
-//    R1 -> H1 -> J1 -> R2 (kiri, -x) & R3 (kanan, +x)
-//    R2 -> H2 -> J2 -> R4 (utara, +z) & R5 (selatan, -z)       (hallway H2 menuju -x)
-//    R3 -> H3 -> J3 -> R6 (utara, +z) & R7 (selatan, -z)       (hallway H3 menuju +x)
-//
-//  CARA MENGATUR UKURAN: ubah angka di MAZE_LAYOUT di bawah (satuan dunia).
-//    ruangan   { width, depth }  : width = lebar sepanjang sumbu X, depth = panjang sepanjang sumbu Z
-//    hallway   { length, width } : length = panjang searah jalannya, width = lebar jalannya
-//    pertigaan { width, toRx, toRy } : width = lebar jalan melintang,
-//                toRx = jarak dari sumbu hallway sampai dinding terdekat ruangan Rx
-//                       (= panjang jalan melintang ke ruangan itu, termasuk setengah lebar hallway)
-//  Posisi semua bagian dihitung otomatis dari ukuran ini. Jika ada yang bertabrakan atau tidak
-//  muat, kode melempar pesan error yang menyebut bagian mana yang bermasalah.
-//
-//  LANTAI: tiap ruangan/hallway/pertigaan mendapat permukaan tidak rata (bukit kecil acak) dan retakan,
-//  dihitung dari satu fungsi tinggi yang sama sehingga tepinya menyambung. Atur lewat TERRAIN.
-// ============================================================
 import { MyObject } from "./MyObject.js";
 import * as Shape from "./Shapes.js";
 import { Pillar, PILLARS } from "./Pillar.js";
 import { CrateStack, CRATE_STACKS } from "./CrateStack.js";
 
-// ===== UKURAN MAZE (satuan dunia) =====
 const MAZE_LAYOUT = {
-    // segment 1 pertama: ruangan awal
     R1: { width: 100, depth: 64 },
-    // segment 2 & 3 (setelah R1): hallway lurus ke +z, lalu pertigaan ke kiri (R2) dan kanan (R3)
     H1: { length: 32, width: 100 },
     J1: { width: 100, toR2: 72, toR3: 72 },
     R2: { width: 100, depth: 100 },
     R3: { width: 100, depth: 100 },
 
-    // pengulangan dari R2: hallway menuju kiri (-x), pertigaan utara-selatan
     H2: { length: 300, width: 100 },
     J2: { width: 100, toR4: 50, toR5: 50 },
     R4: { width: 100, depth: 64 },
     R5: { width: 100, depth: 64 },
 
-    // pengulangan dari R3: hallway menuju kanan (+x), pertigaan utara-selatan
     H3: { length: 300, width: 100 },
     J3: { width: 100, toR6: 50, toR7: 50 },
     R6: { width: 100, depth: 64 },
@@ -72,16 +35,15 @@ const FLOOR_Y = -5.2;
 const FLOOR_THICKNESS = 2;
 const BRIGHTNESS = { floor: 0.85, wall: 0.55 };
 const TERRAIN = {
-    step: 0.75,            // jarak antar titik permukaan lantai (makin kecil makin halus, makin berat)
-    patchDensity: 9,       // jumlah bukit/cekungan kecil per 1000 satuan luas
-    maxRelief: 0.22,       // tinggi maksimum bukit
-    baseRecess: 0.25,      // alas lantai ditaruh sedikit di bawah permukaan
-    crackDensity: 4.8,     // jumlah retakan per 1000 satuan luas
-    maxTileSamples: 200    // permukaan besar dipotong per sekian titik (batas buffer WebGL)
+    step: 0.75,            
+    patchDensity: 9,       
+    maxRelief: 0.22,       
+    baseRecess: 0.25,      
+    crackDensity: 4.8,     
+    maxTileSamples: 200    
 };
 
-// ---------- 1. DENAH ----------
-// Setiap bagian = persegi panjang di bidang xz: { name, kind, x0, x1, z0, z1 }
+
 function planMaze(L) {
     const rects = [];
     const add = (name, kind, x0, x1, z0, z1) => rects.push({
@@ -91,7 +53,6 @@ function planMaze(L) {
     });
     const find = name => rects.find(r => r.name === name);
 
-    // pengulangan ke samping: ruangan -> hallway ke arah dirX -> pertigaan utara-selatan -> 2 ruangan
     function branchSideways(roomName, hallName, junctionName, northName, southName, dirX) {
         const room = find(roomName);
         const hall = L[hallName], junction = L[junctionName];
@@ -113,9 +74,7 @@ function planMaze(L) {
             centerZ - toSouth - south.depth, centerZ - toSouth);
     }
 
-    // segment 1: ruangan awal di pusat (0, 0)
     add("R1", "room", -L.R1.width / 2, L.R1.width / 2, -L.R1.depth / 2, L.R1.depth / 2);
-    // segment 2: hallway ke +z, segment 3: pertigaan kiri-kanan
     const hallEndZ = L.R1.depth / 2 + L.H1.length;
     add("H1", "hall", -L.H1.width / 2, L.H1.width / 2, L.R1.depth / 2, hallEndZ);
     const junctionEndZ = hallEndZ + L.J1.width;
@@ -129,7 +88,6 @@ function planMaze(L) {
     return rects;
 }
 
-// Periksa ukuran: angka valid, hallway muat di dinding ruangan, tidak ada bagian yang saling tumpang tindih
 function validateMaze(L, rects) {
     const positive = (label, value) => {
         if (!Number.isFinite(value) || value <= 0) throw new Error(`MAZE_LAYOUT: ${label} harus angka lebih besar dari 0 (sekarang ${value}).`);
@@ -168,13 +126,11 @@ function validateMaze(L, rects) {
     }
 }
 
-// ---------- 2. DINDING ----------
-// Tiap sisi persegi dijadikan dinding, kecuali bagian yang menempel pada bagian lain (bukaan jalan).
+// dinding
 function planWalls(rects) {
     const EPS = 1e-6;
     const walls = [];
 
-    // sisi: { axis: "x" (dinding memanjang sepanjang x) / "z", fixed: koordinat garis, from, to }
     const sidesOf = r => [
         { axis: "x", fixed: r.z0, from: r.x0, to: r.x1, openTo: other => other.z1 },
         { axis: "x", fixed: r.z1, from: r.x0, to: r.x1, openTo: other => other.z0 },
@@ -184,7 +140,6 @@ function planWalls(rects) {
 
     rects.forEach(rect => {
         sidesOf(rect).forEach(side => {
-            // bagian sisi ini yang tertutup persegi lain yang menempel di garis yang sama
             const gaps = [];
             rects.forEach(other => {
                 if (other === rect || Math.abs(side.openTo(other) - side.fixed) > EPS) return;
@@ -204,7 +159,7 @@ function planWalls(rects) {
             if (side.to - cursor > EPS) pieces.push([cursor, side.to]);
 
             pieces.forEach(([a, b]) => {
-                const length = b - a + WALL.thickness;                 // + tebal menutup sudut
+                const length = b - a + WALL.thickness;                 
                 const middle = (a + b) / 2;
                 walls.push(side.axis === "x"
                     ? { x: middle, z: side.fixed, width: length, depth: WALL.thickness }
@@ -215,7 +170,7 @@ function planWalls(rects) {
     return walls;
 }
 
-// ---------- 3. LANTAI (permukaan tidak rata + retakan) ----------
+// lantai
 function createRandom(seed) {
     let state = seed;
     return () => {
@@ -224,8 +179,7 @@ function createRandom(seed) {
     };
 }
 
-// titik sampel sepanjang satu sumbu: ujung a, kelipatan step di antaranya, ujung b
-// (kelipatan step sama untuk semua persegi -> tepi persegi bertetangga menyambung)
+
 function sampleAxis(a, b, step) {
     const values = [a];
     for (let k = Math.floor(a / step) + 1; k * step < b - 1e-6; k++) {
@@ -238,7 +192,6 @@ function sampleAxis(a, b, step) {
 function createTerrain(rects) {
     const random = createRandom(183746);
 
-    // bukit/cekungan kecil tersebar di setiap bagian lantai
     const patches = [];
     rects.forEach(rect => {
         const area = (rect.x1 - rect.x0) * (rect.z1 - rect.z0);
@@ -252,7 +205,7 @@ function createTerrain(rects) {
             });
         }
     });
-    const reach = patch => patch.radius * 3.2;                          // di luar ini pengaruhnya hampir nol
+    const reach = patch => patch.radius * 3.2;                          
     const makeHeightAt = list => (x, z) => list.reduce((height, patch) => {
         const dx = (x - patch.x) / patch.radius;
         const dz = (z - patch.z) / patch.radius;
@@ -260,7 +213,6 @@ function createTerrain(rects) {
     }, 0);
     const heightAtAll = makeHeightAt(patches);
 
-    // satu potongan permukaan untuk daerah [xs] x [zs]
     const surfaces = [];
     const buildSurface = (xs, zs) => {
         const nearby = patches.filter(p => p.x + reach(p) >= xs[0] && p.x - reach(p) <= xs[xs.length - 1]
@@ -299,7 +251,7 @@ function createTerrain(rects) {
         }
     });
 
-    // retakan tipis di atas permukaan
+    // retakan 
     const crackVertices = [];
     const crackIndices = [];
     rects.forEach(rect => {
@@ -488,7 +440,7 @@ function createDimpledWall(width, height, depth, x, z) {
     return { vertices, normals, vertexColors, indices };
 }
 
-// ---------- 4. OBJEK ENVIRONMENT ----------
+// objek di environment
 export class Environment extends MyObject {
     constructor(GL, SHADER_PROGRAM, locations) {
         super(GL, SHADER_PROGRAM, locations);
@@ -496,8 +448,8 @@ export class Environment extends MyObject {
         const rects = planMaze(MAZE_LAYOUT);
         validateMaze(MAZE_LAYOUT, rects);
         this.floorY = FLOOR_Y;
-        this.rects = rects;                                    // semua bagian maze (ruangan, hallway, pertigaan)
-        this.rooms = {};                                       // pusat tiap ruangan: this.rooms.R1.x / .z
+        this.rects = rects;                                    
+        this.rooms = {};                                       
         rects.filter(r => r.kind === "room").forEach(r => {
             this.rooms[r.name] = { x: (r.x0 + r.x1) / 2, z: (r.z0 + r.z1) / 2 };
         });
@@ -512,7 +464,7 @@ export class Environment extends MyObject {
             ));
         });
 
-        // permukaan lantai tidak rata + retakan (koordinat dunia, diangkat ke FLOOR_Y)
+        // permukaan lantai tidak rata dan retakan 
         const terrain = createTerrain(rects);
         terrain.surfaces.forEach(surface => {
             const floorSurface = new MyObject(this.GL, this.SHADER_PROGRAM, this.locations);
@@ -551,7 +503,6 @@ export class Environment extends MyObject {
         });
         this.childs.push(this.roof);
 
-        // dinding
         planWalls(rects).forEach(wall => {
             this.childs.push(this.addDimpledBlock(
                 wall.width, WALL.height, wall.depth,
@@ -581,7 +532,6 @@ export class Environment extends MyObject {
         });
     }
 
-    // balok berukuran (width, height, depth) dengan pusat di (x, y, z) relatif terhadap akar
     addBlock(width, height, depth, x, y, z, brightness) {
         const shape = Shape.box(width, height, depth);
         const part = new MyObject(this.GL, this.SHADER_PROGRAM, this.locations);

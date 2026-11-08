@@ -1,25 +1,16 @@
-// MyObject.js : satu bagian karakter (node pada pohon hierarki)
-//
-//   POSITION_MATRIX : letak TETAP terhadap induk (titik sendi)
-//   MOVE_MATRIX     : pose / gerakan, diisi ulang tiap frame
-//   childs          : anak-anaknya, diisi dengan  induk.childs.push(anak)
-//
-//   render(PARENT_MATRIX):  MODEL = PARENT x POSITION x MOVE, gambar bentuknya,
-//   lalu render semua anak memakai MODEL milik sendiri -> anak selalu ikut induknya.
 export class MyObject {
     GL = null;
     SHADER_PROGRAM = null;
-    locations = null;                 // alamat atribut & uniform shader { position, normal, model, color, hatching }
+    locations = null;                 
 
-    // bentuk: vertex & normal = x,y,z per titik; faces = indeks segitiga
     vertex = [];
     normals = [];
     vertexColors = [];
     vertexUVs = [];
     faces = [];
-    brightness = 0.8;                 // kecerahan abu-abu (0..1)
-    color = null;                     // [r, g, b] bila bagian ini berwarna (mengganti abu-abu)
-    hatching = 1;                     // 1 = beri arsiran, 0 = polos
+    brightness = 0.8;                 
+    color = null;                     
+    hatching = 1;                     
     visible = true;
     transparent = false;
 
@@ -41,9 +32,8 @@ export class MyObject {
         this.locations = locations;
     }
 
-    // kirim bentuk ke GPU (objek ini + semua anaknya)
     setup() {
-        const data = [];              // per titik: x y z nx ny nz
+        const data = [];              
         for (let i = 0; i < this.vertex.length; i += 3) {
             data.push(this.vertex[i], this.vertex[i + 1], this.vertex[i + 2],
                       this.normals[i], this.normals[i + 1], this.normals[i + 2]);
@@ -83,7 +73,7 @@ export class MyObject {
         this.MODEL_MATRIX = LIBS.multiply(this.MOVE_MATRIX, this.POSITION_MATRIX);
         this.MODEL_MATRIX = LIBS.multiply(this.MODEL_MATRIX, PARENT_MATRIX);
 
-        if (this.faces.length > 0) {  // objek kosong (akar) hanya meneruskan transformasi
+        if (this.faces.length > 0) {  
             if (this.transparent) {
                 this.GL.enable(this.GL.BLEND);
                 this.GL.blendFunc(this.GL.SRC_ALPHA, this.GL.ONE_MINUS_SRC_ALPHA);
@@ -99,7 +89,7 @@ export class MyObject {
             this.GL.uniform1f(this.locations.textureOpacity, this.opacity ?? 1);
 
             this.GL.bindBuffer(this.GL.ARRAY_BUFFER, this.OBJECT_VERTEX);
-            this.GL.vertexAttribPointer(this.locations.position, 3, this.GL.FLOAT, false, 24, 0);    // 6 angka x 4 byte
+            this.GL.vertexAttribPointer(this.locations.position, 3, this.GL.FLOAT, false, 24, 0);    
             this.GL.vertexAttribPointer(this.locations.normal, 3, this.GL.FLOAT, false, 24, 12);
 
             this.GL.bindBuffer(this.GL.ARRAY_BUFFER, this.OBJECT_COLOR);

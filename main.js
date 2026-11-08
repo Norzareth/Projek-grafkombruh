@@ -1,11 +1,11 @@
 // main.js : setup WebGL, kamera, mouse, dan loop render untuk environment dan karakter.
-import { Character as Mouthe } from "./Mouthe/Character.js";   // karakter pertama (Mouthe)
+
+import { Character as Mouthe } from "./Mouthe/Character.js";   
 import { Environment } from "./environment.js";
-import { Character as Gundog } from "./Gundog/Character.js";   // karakter kedua (Gundog)
-import { Character as Knifo } from "./Knifo/Character.js";     // karakter ketiga (Knifo)
+import { Character as Gundog } from "./Gundog/Character.js";   
+import { Character as Knifo } from "./Knifo/Character.js";     
 import { Tile } from "./Tile.js";
 
-// Edit this single object to place the image overlay. Keep it on the floor plane.
 const TILE_CONFIG = {
     x: -520, y: -4.85, z: 110,
     width: 20, depth: 20,
@@ -13,7 +13,6 @@ const TILE_CONFIG = {
     opacity: 0.5
 };
 
-// ===== SHADER (cahaya sederhana + arsiran abu-abu) =====
 const VERTEX_SHADER = `
     attribute vec3 a_position;
     attribute vec3 a_normal;
@@ -158,19 +157,13 @@ const FRAGMENT_SHADER = `
     }
 `;
 
-// Koordinat karakter memakai posisi dunia X/Z (Y dihitung dari FLOOR_Y dan footY).
-// Batas ruang dari MAZE_LAYOUT saat ini, format X[min, max], Z[min, max]:
-// R1: X[-50, 50],   Z[-32, 32]       R2: X[-172, -72], Z[64, 164]
-// R3: X[72, 172],   Z[64, 164]        R4: X[-572, -472], Z[164, 228]
-// R5: X[-572, -472], Z[0, 64]         R6: X[472, 572], Z[164, 228]
-// R7: X[472, 572], Z[0, 64]
-// Atur posisi karakter secara manual hanya dengan x dan z.
+// Posisi karakter di environment
 const GUNDOG = {
     x: -515, z: 140,
     footY: -1.7,
     faceCharacter: true,
     target: "knifo",
-    rotationY: 0 // rotasi tambahan di sumbu Y, derajat
+    rotationY: 0 
 };
 const KNIFO = {
     x: -500, z: 140,
@@ -221,25 +214,21 @@ function validateCharacterPositions() {
     }
 }
 
-// Skala seragam per karakter. Ubah angka ini untuk memperbesar atau memperkecil model.
+// Scale karakter
 const CHARACTER_SCALE = {
     mouthe: 1,
     gundog: 3,
     knifo: 3
 };
-// Pengali kecepatan animasi: 1 = normal, 2 = dua kali lebih cepat,
-// 0.5 = setengah kecepatan. Nilai 0 menghentikan animasi tanpa mematikan toggle.
+// Speed animasi karakter
 const ANIMATION_SPEED = {
     mouthe: 4,
     gundog: 4,
     knifo: 3
 };
-const MOUTHE_FOOT_Y = -5.88; // perkiraan posisi telapak Mouthe dari akar pada pose berdiri
-const CHARACTER_FORWARD_SPEED = 50; // satuan dunia per detik
-// Gerak maju dan rotasi otomatis tiap karakter.
-// forward.distance dalam satuan dunia; rotation.angle dalam radian.
-// rotation.direction: 1 = putar positif Y (dari +Z menuju +X), -1 = arah sebaliknya.
-// rotation.speed dalam radian per detik.
+const MOUTHE_FOOT_Y = -5.88; 
+const CHARACTER_FORWARD_SPEED = 50; // Kecepatan gerak maju karakter
+
 const CHARACTER_MOTION = {
     mouthe: {
         forward: { distance: 10000, speed: CHARACTER_FORWARD_SPEED },
@@ -254,10 +243,7 @@ const CHARACTER_MOTION = {
         rotation: { direction: 1, angle: Math.PI / 2, speed: Math.PI / 2 }
     }
 };
-const KNIFO_SCENE = {
-    autoStart: true,
-    sequencePending: true
-};
+
 
 if (Object.values(ANIMATION_SPEED).some(speed => !Number.isFinite(speed) || speed < 0)) {
     throw new Error("ANIMATION_SPEED values must be finite numbers greater than or equal to 0.");
@@ -275,7 +261,7 @@ for (const [name, motion] of Object.entries(CHARACTER_MOTION)) {
 }
 
 function main() {
-    /*===== CANVAS & WEBGL =====*/
+    //Canvas dan WebGL
     const CANVAS = document.getElementById("myCanvas");
     CANVAS.width = window.innerWidth;
     CANVAS.height = window.innerHeight;
@@ -294,7 +280,7 @@ function main() {
     GL.linkProgram(SHADER_PROGRAM);
     GL.useProgram(SHADER_PROGRAM);
 
-    const locations = {                  // alamat atribut & uniform di shader
+    const locations = {                  
         position: GL.getAttribLocation(SHADER_PROGRAM, "a_position"),
         normal:   GL.getAttribLocation(SHADER_PROGRAM, "a_normal"),
         vertexColor: GL.getAttribLocation(SHADER_PROGRAM, "a_vertexColor"),
@@ -320,7 +306,7 @@ function main() {
     GL.uniform1f(locations.redLightEnabled, 0);
     GL.uniform1f(locations.redLightRange, 48);
 
-    // proyeksi perspektif
+    // FOV
     const _Pmatrix = GL.getUniformLocation(SHADER_PROGRAM, "u_projection");
     const _Vmatrix = GL.getUniformLocation(SHADER_PROGRAM, "u_view");
     const near = 0.1, far = 2000.0;
@@ -345,7 +331,7 @@ function main() {
     GL.enable(GL.DEPTH_TEST);
     GL.viewport(0, 0, CANVAS.width, CANVAS.height);
 
-    /*===== FREECAM (click to capture mouse; Esc to release) =====*/
+    // Camera
     const camera = { x: 0, y: 3, z: 18, yaw: 0, pitch: -0.12 };
     const CAMERA_STORAGE_KEY = "projek-grafkombruh.camera.v1";
     const pressedKeys = new Set();
@@ -471,16 +457,10 @@ function main() {
         CANVAS.width = innerWidth; CANVAS.height = innerHeight;
         GL.viewport(0, 0, CANVAS.width, CANVAS.height);
         updateProjection();
-    };
-
-/*===== KARAKTER =====*/
-
-    //
-    //mouthe
-    // 
+    }; 
 
     const mouthe = new Mouthe(GL, SHADER_PROGRAM, locations);
-    mouthe.setup();                   // kirim semua bagian ke GPU (rekursif lewat childs)
+    mouthe.setup();                   
     for (const scale of [LIBS.scaleX, LIBS.scaleY, LIBS.scaleZ]) {
         scale(mouthe.POSITION_MATRIX, CHARACTER_SCALE.mouthe);
     }
@@ -492,7 +472,7 @@ function main() {
         MOUTHE.z
     );
 
-    const environment = new Environment(GL, SHADER_PROGRAM, locations);   // maze (environment.js)
+    const environment = new Environment(GL, SHADER_PROGRAM, locations);   
     environment.setup();
     const tile = new Tile(GL, SHADER_PROGRAM, locations, TILE_CONFIG);
     tile.setup();
@@ -510,14 +490,8 @@ function main() {
         event.preventDefault();
     });
 
-
-    //
-    // gundog: memakai shader, kamera, dan arsiran yang sama dengan karakter pertama & maze
-    //
-
     const gundog = new Gundog(GL, SHADER_PROGRAM, locations);
     gundog.setup();
-    // letak gundog: skala -> putar -> geser (urutan ini penting karena LIBS.scale hanya mengisi diagonal)
     LIBS.scaleX(gundog.POSITION_MATRIX, CHARACTER_SCALE.gundog);
     LIBS.scaleY(gundog.POSITION_MATRIX, CHARACTER_SCALE.gundog);
     LIBS.scaleZ(gundog.POSITION_MATRIX, CHARACTER_SCALE.gundog);
@@ -540,11 +514,6 @@ function main() {
         lightToggle.checked = gundog.lightOn;
         event.preventDefault();
     });
-
-
-    //
-    //knifo
-    //
 
     const knifo = new Knifo(GL, SHADER_PROGRAM, locations);
     knifo.setup();
@@ -620,10 +589,7 @@ function main() {
 
 
 
-    /*===== TOGGLE ANIMASI: satu per karakter, saling terpisah =====
-       Tombol [1] atau kotak centang "Mouthe"  -> hanya menyalakan/mematikan animasi Mouthe (karakter pertama)
-       Tombol [2] atau kotak centang "Gundog"  -> hanya menyalakan/mematikan animasi Gundog (karakter kedua)
-       Tombol [3] atau kotak centang "Knifo"   -> hanya menyalakan/mematikan animasi Knifo (karakter ketiga). */
+    // Toggle animasi karakter
     const animationToggles = [
         { key: "1", character: mouthe, checkbox: document.getElementById("toggleMouthe") },
         { key: "2", character: gundog, checkbox: document.getElementById("toggleGundog") },
@@ -633,17 +599,17 @@ function main() {
         toggle.checkbox.checked = toggle.character.animationOn;
         toggle.checkbox.addEventListener("change", () => {
             toggle.character.animationOn = toggle.checkbox.checked;
-            toggle.checkbox.blur();                       // agar tombol Space (naik) tidak ikut menekan kotak ini
+            toggle.checkbox.blur();                       
         });
     });
-    window.addEventListener("keydown", event => {            // bekerja juga saat mouse terkunci (kamera aktif)
+    window.addEventListener("keydown", event => {            
         const toggle = animationToggles.find(item => item.key === event.key);
         if (!toggle || event.repeat) return;
         toggle.checkbox.checked = !toggle.checkbox.checked;
         toggle.character.animationOn = toggle.checkbox.checked;
     });
 
-    /*===== IKUTI GERAKAN KARAKTER: kamera bergerak mengikuti selisih posisi akar =====*/
+    // Toggle ikuti gerakan karakter
     const followToggles = [
         { name: "mouthe", getMatrix: () => mouthe.POSITION_MATRIX, checkbox: document.getElementById("followMouthe") },
         { name: "gundog", getMatrix: () => gundog.POSITION_MATRIX, checkbox: document.getElementById("followGundog") },
@@ -675,7 +641,7 @@ function main() {
         followedCharacter.lastPosition = [matrix[12], matrix[13], matrix[14]];
     };
 
-    /*===== TOGGLE GERAK MAJU: terpisah dari animasi pose =====*/
+    // Toggle gerak maju
     const forwardFromYaw = (yaw, localDirection = 1) => ({
         x: localDirection * Math.sin(yaw),
         z: localDirection * Math.cos(yaw)
@@ -868,11 +834,6 @@ function main() {
             .forEach(control => control.addEventListener("keydown", event => event.stopPropagation()));
     });
 
-    // if (KNIFO_SCENE.autoStart) {
-    //     const knifoMovement = movementToggles.find(item => item.name === "knifo");
-    //     setMovementActive(knifoMovement, true);
-    // }
-
     const startTime = performance.now();
     let previousFrameTime = startTime;
     const animate = () => {
@@ -956,7 +917,7 @@ function main() {
         });
 
         const elapsedSeconds = (now - startTime) / 1000;
-        gundog.animasi(now * ANIMATION_SPEED.gundog);                   // gundog memakai milidetik
+        gundog.animasi(now * ANIMATION_SPEED.gundog);                   
         mouthe.animasi(elapsedSeconds * ANIMATION_SPEED.mouthe);
         knifo.animasi(elapsedSeconds * ANIMATION_SPEED.knifo);
         followCharacterMovement();
@@ -978,11 +939,10 @@ function main() {
         GL.uniform3fv(locations.redLightDirection, barrelLight.direction);
         GL.uniform1f(locations.redLightEnabled, gundog.lightOn ? 1 : 0);
 
-        mouthe.render(LIBS.get_I4());                              // akar dipanggil dengan matriks identitas
+        mouthe.render(LIBS.get_I4());                              
         environment.render(LIBS.get_I4());
         tile.render(LIBS.get_I4());
 
-        // knifo memakai waktu dalam detik, seperti Mouthe
         knifo.render(LIBS.get_I4());
 
         window.requestAnimationFrame(animate);

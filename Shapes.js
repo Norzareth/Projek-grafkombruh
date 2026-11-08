@@ -1,15 +1,9 @@
-// Shapes.js : pembuat bentuk. Semua fungsi mengembalikan { vertices, normals, indices }
-//   Balok berkurva (Bezier) -> torso
-//   Quadric : hemisphere (kepala), cone (tangan), cylinder (lengan & kaki), ellipsoid/sphere (mata, sendi)
-//   Balok biasa / balok trapesium -> gigi, telapak kaki
-
-// ---------- alat bantu ----------
+// Shapes.js; pembuat bentuk. Semua fungsi mengembalikan { vertices, normals, indices }
 export const bezier = (p0, p1, p2, p3, t) => {
     const u = 1 - t;
     return u*u*u*p0 + 3*u*u*t*p1 + 3*u*t*t*p2 + t*t*t*p3;
 };
 
-// normal halus tiap titik = rata-rata normal segitiga di sekitarnya
 function computeNormals(vertices, indices) {
     const normals = new Array(vertices.length).fill(0);
     for (let i = 0; i < indices.length; i += 3) {
@@ -26,7 +20,6 @@ function computeNormals(vertices, indices) {
     return normals;
 }
 
-// langkah terakhir semua bentuk: hitung normal, balik jika mayoritas menghadap ke dalam
 function finish(vertices, indices) {
     const shape = { vertices, normals: computeNormals(vertices, indices), indices };
     let facing = 0;
@@ -38,7 +31,6 @@ function finish(vertices, indices) {
     return shape;
 }
 
-// geser semua titik, agar bentuk "menggantung" dari titik sendinya yang ada di (0,0,0)
 export function move(shape, offsetX, offsetY, offsetZ) {
     for (let i = 0; i < shape.vertices.length; i += 3) {
         shape.vertices[i] += offsetX; shape.vertices[i+1] += offsetY; shape.vertices[i+2] += offsetZ;
@@ -46,7 +38,6 @@ export function move(shape, offsetX, offsetY, offsetZ) {
     return shape;
 }
 
-// permukaan bola/elips (theta = sudut dari kutub atas), dipakai ellipsoid & hemisphere
 function sphereSurface(rx, ry, rz, latBands, longBands, thetaStart, thetaRange) {
     const vertices = [], indices = [];
     for (let lat = 0; lat <= latBands; lat++) {
@@ -65,16 +56,15 @@ function sphereSurface(rx, ry, rz, latBands, longBands, thetaStart, thetaRange) 
     return { vertices, indices };
 }
 
-// ---------- bentuk 1: balok berkurva (torso) ----------
-// tumpukan penampang kotak membulat; tiap penampang digeser & diskalakan mengikuti kurva Bezier
+
 export function curvedBox(width, depth, height, segmentsY) {
-    const ringPoints = 32, boxiness = 0.25;     // boxiness: eksponen superellipse, makin kecil makin kotak
+    const ringPoints = 32, boxiness = 0.25;     // boxiness: makin kecil makin kotak
     const vertices = [], indices = [];
 
     for (let i = 0; i <= segmentsY; i++) {
         const v = i / segmentsY;                                  // 0 = bawah, 1 = atas
         const bendZ = bezier(0.0, -0.9, -0.9, 0.5, v);            // lengkung punggung
-        const scale = bezier(1.15, 1.0, 1.0, 0.85, v);            // lebar bawah -> menyempit ke atas
+        const scale = bezier(1.15, 1.0, 1.0, 0.85, v);            
         for (let j = 0; j < ringPoints; j++) {
             const c = Math.cos(j * 2 * Math.PI / ringPoints), s = Math.sin(j * 2 * Math.PI / ringPoints);
             vertices.push(Math.sign(c) * Math.pow(Math.abs(c), boxiness) * width / 2 * scale,
@@ -104,13 +94,12 @@ export function curvedBox(width, depth, height, segmentsY) {
     return finish(vertices, indices);
 }
 
-// ---------- bentuk 2: quadric ----------
-
-// cylinder (jari-jari atas boleh beda dengan bawah). segments = 4 -> balok trapesium
+// cylinder 
+// segments = 4 -> balok trapesium
 export function cylinder(radiusTop, radiusBottom, height, segments, depthScale = 1) {
     const vertices = [], indices = [];
     const yTop = height / 2, yBottom = -height / 2;
-    const rotation = segments === 4 ? Math.PI / 4 : 0;            // 4 sisi: sudut balok sejajar sumbu
+    const rotation = segments === 4 ? Math.PI / 4 : 0;            
 
     for (let i = 0; i <= segments; i++) {
         const angle = i * 2 * Math.PI / segments + rotation;
@@ -130,13 +119,13 @@ export function cylinder(radiusTop, radiusBottom, height, segments, depthScale =
     return finish(vertices, indices);
 }
 
-// balok trapesium (telapak kaki) = cylinder 4 sisi
+// balok trapesium
 export const trapezoidBox = (radiusTop, radiusBottom, height, depthScale) =>
     cylinder(radiusTop, radiusBottom, height, 4, depthScale);
 
-// cone: alas di atas, ujung runcing di bawah (arah jari)
+// cone
 export function cone(radius, height, segments) {
-    const vertices = [0, height / 2, 0], indices = [];            // titik 0 = pusat alas
+    const vertices = [0, height / 2, 0], indices = [];            
     for (let i = 0; i <= segments; i++) {
         const angle = i * 2 * Math.PI / segments;
         vertices.push(radius * Math.cos(angle), height / 2, radius * Math.sin(angle));
@@ -144,32 +133,31 @@ export function cone(radius, height, segments) {
     const tip = vertices.length / 3;
     vertices.push(0, -height / 2, 0);
     for (let i = 1; i <= segments; i++) {
-        indices.push(tip, i, i + 1);                              // selimut
-        indices.push(0, i + 1, i);                                // alas
+        indices.push(tip, i, i + 1);                              
+        indices.push(0, i + 1, i);                                
     }
     return finish(vertices, indices);
 }
 
-// hemisphere: isTop = true belahan atas, false belahan bawah; bidang potongnya ditutup
+// hemisphere
 export function hemisphere(rx, ry, rz, latBands, longBands, isTop) {
     const { vertices, indices } = sphereSurface(rx, ry, rz, latBands, longBands, isTop ? 0 : Math.PI / 2, Math.PI / 2);
     const center = vertices.length / 3;
     vertices.push(0, 0, 0);
-    const edge = (isTop ? latBands : 0) * (longBands + 1);        // baris titik di bidang potong
+    const edge = (isTop ? latBands : 0) * (longBands + 1);        
     for (let j = 0; j < longBands; j++) {
         if (isTop) indices.push(center, edge + j + 1, edge + j); else indices.push(center, edge + j, edge + j + 1);
     }
     return finish(vertices, indices);
 }
 
-// ellipsoid (radius sama = sphere): mata, kelopak, bola sendi
+// ellipsoid 
 export function ellipsoid(rx, ry, rz, latBands, longBands) {
     const { vertices, indices } = sphereSurface(rx, ry, rz, latBands, longBands, 0, Math.PI);
     return finish(vertices, indices);
 }
 
-// ---------- bentuk 3: balok biasa (gigi) ----------
-// tiap sisi punya titik sendiri agar sudutnya tajam
+// balok
 export function box(width, height, depth) {
     const x = width / 2, y = height / 2, z = depth / 2;
     const faces = [
@@ -188,10 +176,7 @@ export function box(width, height, depth) {
     return finish(vertices, indices);
 }
 
-// ---------- konversi bentuk biasa (hanya titik & segitiga, tanpa normal) ----------
-// positions = [x,y,z,...], faces = indeks segitiga. Tiap segitiga dihadapkan keluar (relatif ke pusat bentuk).
-//   smooth = true  : normal dirata-ratakan antar segitiga (permukaan halus: silinder, elips)
-//   smooth = false : tiap segitiga punya titik & normal sendiri (permukaan rata: balok, prisma)
+
 export function fromMesh(positions, faces, smooth) {
     const count = positions.length / 3;
     let cx = 0, cy = 0, cz = 0;
@@ -207,14 +192,14 @@ export function fromMesh(positions, faces, smooth) {
         const mx = (positions[a*3] + positions[b*3] + positions[c*3]) / 3 - cx;
         const my = (positions[a*3+1] + positions[b*3+1] + positions[c*3+1]) / 3 - cy;
         const mz = (positions[a*3+2] + positions[b*3+2] + positions[c*3+2]) / 3 - cz;
-        if (nx*mx + ny*my + nz*mz < 0) [b, c] = [c, b];            // balik jika menghadap ke dalam
+        if (nx*mx + ny*my + nz*mz < 0) [b, c] = [c, b];            
         indices.push(a, b, c);
     }
 
     if (smooth) return { vertices: positions.slice(), normals: computeNormals(positions, indices), indices };
 
     const vertices = [], flatIndices = [];
-    indices.forEach((index, n) => {                                   // lepas titik per segitiga
+    indices.forEach((index, n) => {                                   
         vertices.push(positions[index*3], positions[index*3+1], positions[index*3+2]);
         flatIndices.push(n);
     });

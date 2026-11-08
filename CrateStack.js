@@ -1,7 +1,8 @@
 import { MyObject } from "./MyObject.js";
 import * as Shape from "./Shapes.js";
 
-// Posisi x/z adalah koordinat dunia, bukan posisi relatif terhadap ruangan.
+// daftar stack kotak dan posisinya
+
 export const CRATE_STACKS = [
     { x: 0, z: -27.5, crateWidth: 4, crateHeight: 4, crateDepth: 4, scale: 1, rotation: 0 },
     { x: 104, z: 68.5, crateWidth: 4, crateHeight: 4, crateDepth: 4, scale: 1, rotation: 0 },
