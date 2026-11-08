@@ -153,9 +153,9 @@ function createSpotlightBeam(length, nearRadius, farRadius, segments = 24) {
 }
 
 //
-//paraboloid
+// Hemisphere
 // telapak bulat dari tumpukan cincin. Jari-jari mengikuti r(y) = R * sqrt(1 - (y/H)^2)
-function createParaboloidFoot(radius, height, segments = 12, rings = 5) {
+function createHemisphereFoot(radius, height, segments = 12, rings = 5) {
     var vertices = [];
     var faces = [];
 
@@ -397,7 +397,7 @@ export class Character extends MyObject {
 
             // kaki
             LIBS.rotateZ(footPivot.POSITION_MATRIX, -slope);
-            var foot = this.addMesh(createParaboloidFoot(0.19, 0.2), armorLight, 0, 0, 0);
+            var foot = this.addMesh(createHemisphereFoot(0.19, 0.2), armorLight, 0, 0, 0);
             footPivot.childs.push(foot);
 
             // push kaki
