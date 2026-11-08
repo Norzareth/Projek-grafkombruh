@@ -1,6 +1,6 @@
 // karakter Knifo (Content Warning)
 
-import { MyObject } from "../MyObject.js";
+import { MyObject } from "./MyObject.js";
 import * as Shape from "../Shapes.js";
 
 // bilah pisau: profil 2D diberi ketebalan
@@ -44,7 +44,6 @@ function flatPrism(profile, depth) {
 
     return { vertices, normals, indices };
 }
-
 
 // langkah akhir bentuk berputar: normal halus dan menghadap keluar
 function finishMesh(vertices, indices, columns, rings) {
@@ -113,7 +112,6 @@ function finishMesh(vertices, indices, columns, rings) {
     return { vertices, normals, indices };
 }
 
-
 // sepatu
 function createShoe(halfWidth, height, halfLength, columns = 32, rows = 28) {
     const p = 2.4;                           // makin besar, makin penuh/kotak
@@ -151,15 +149,13 @@ function createShoe(halfWidth, height, halfLength, columns = 32, rows = 28) {
     return finishMesh(vertices, indices, columns, rows + 1);
 }
 
-
 // kurva Bezier kubik (dipakai untuk profil jubah)
 function bezier(p0, p1, p2, p3, t) {
     const u = 1 - t;
     return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3;
 }
 
-
-// QUADRIC: bola / elipsoid dengan normal analitik (dipakai untuk sendi)
+// bola / elipsoid
 function createSphere(rx, ry, rz, latBands = 16, longBands = 24) {
     const vertices = [], normals = [], indices = [];
     for (let lat = 0; lat <= latBands; lat++) {
@@ -184,10 +180,7 @@ function createSphere(rx, ry, rz, latBands = 16, longBands = 24) {
     return { vertices, normals, indices };
 }
 
-
-// QUADRIC: FRUSTUM = kerucut terpancung (cone), jari-jari atas rTop dan bawah rBottom.
-// Menggantung dari titik sendi (0,0,0) ke arah -Y. Jika rTop == rBottom bentuknya
-// menjadi cylinder. Selimut memakai normal analitik (mulus, tanpa garis sambungan).
+// frustum (kerucut terpancung), menggantung ke arah -Y dari titik sendi
 function createFrustum(rTop, rBottom, height, columns = 28) {
     const vertices = [], normals = [], indices = [];
     const slope = (rBottom - rTop) / height;
@@ -225,9 +218,8 @@ function createFrustum(rTop, rBottom, height, columns = 28) {
     return { vertices, normals, indices };
 }
 
-// QUADRIC: CYLINDER = frustum dengan dua jari-jari sama (dipakai untuk kaki)
+// cylinder = frustum dengan dua jari-jari sama
 const createCylinder = (radius, height, columns = 28) => createFrustum(radius, radius, height, columns);
-
 
 // jari mulus: tabung disapu di sepanjang kurva melewati sendi
 function createSweptTube(points, radii, planeW, columns = 18, perSeg = 8, capRings = 6) {
@@ -319,7 +311,6 @@ function createSweptTube(points, radii, planeW, columns = 18, perSeg = 8, capRin
     return mesh;
 }
 
-
 // tubuh + kepala satu permukaan (bentuk hantu)
 function createGhostBody(columns) {
     const hemY = -0.85;           // dasar jubah
@@ -341,8 +332,7 @@ function createGhostBody(columns) {
     for (let i = 0; i <= rowsRobe; i++) {
         const y = hemY + (headY - hemY) * i / rowsRobe;
         const v = Math.min(1, (y - hemY) / (shoulderY - hemY));
-        // jubah melebar ke bawah: profil radius = KURVA BEZIER kubik
-        // (titik kendali 1.30 -> 0.90 -> 0.68 -> 0.66 dari hem ke bahu)
+        // profil jubah: kurva Bezier kubik dari hem ke bahu
         let r = bezier(1.30, 0.90, 0.68, 0.66, v);
         // peralihan ke kepala
         r = r + (headRx - r) * smooth(shoulderY, headY, y);
@@ -476,7 +466,6 @@ function createGhostBody(columns) {
     return { vertices, normals, indices };
 }
 
-
 // alat bantu pose lengan (pose lewat arah, bukan sudut)
 const v3 = {
     dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
@@ -503,14 +492,12 @@ const ARM_POSE = {
     right: { upper: v3.norm([ 0.22, -0.65, 0.72]), forearm: v3.norm([-0.28,  0.25, 0.93]) }
 };
 
-// Matriks rotasi terhadap SUMBU SEMBARANG (arbitrary axis, rumus Rodrigues).
-// axis = [x, y, z] (tidak harus ternormalisasi), angle dalam radian.
-// Layout matriks sama dengan LIBS (translasi di m[12..14], perkalian baris-kolom).
+// rotasi terhadap sumbu sembarang (Rodrigues)
 function rotateAxisMatrix(axis, angle) {
     const len = Math.hypot(axis[0], axis[1], axis[2]);
     const x = axis[0] / len, y = axis[1] / len, z = axis[2] / len;
     const c = Math.cos(angle), s = Math.sin(angle), k = 1 - c;
-    // R standar (kolom-vektor)
+
     const R = [
         [c + x*x*k,     x*y*k - z*s,  x*z*k + y*s],
         [y*x*k + z*s,   c + y*y*k,    y*z*k - x*s],
@@ -522,7 +509,7 @@ function rotateAxisMatrix(axis, angle) {
     return m;
 }
 
-// Matriks scaling (sx, sy, sz) terhadap titik asal objek.
+// matriks scaling
 function scaleMatrix(sx, sy, sz) {
     const m = LIBS.get_I4();
     m[0] = sx; m[5] = sy; m[10] = sz;
@@ -530,13 +517,9 @@ function scaleMatrix(sx, sy, sz) {
 }
 
 export class Character extends MyObject {
-    animationOn = true;
-    clock = 0;
-    lastTime = null;
-
     constructor(GL, SHADER_PROGRAM, locations) {
         super(GL, SHADER_PROGRAM, locations);
-        
+
         // tubuh + kepala
         this.torso = this.addMesh(
             createGhostBody(48),
@@ -545,11 +528,9 @@ export class Character extends MyObject {
 
         this.childs.push(this.torso);
 
-
         // wajah (this.head hanya titik acuan)
         this.head = this.group(0, 1.43, 0.02);
         this.torso.childs.push(this.head);
-
 
         // mata
         for (const side of [-1, 1]) {
@@ -571,10 +552,8 @@ export class Character extends MyObject {
         );
         this.head.childs.push(mouth);
 
-
         // kaki dan sepatu
-        // kaki = cylinder, titik putar (pinggul) tersembunyi di dalam jubah.
-        // Sepatu dan sol menjadi anak kaki supaya ikut mengayun saat animasi.
+        // kaki = cylinder, sepatu dan sol ikut kaki
         this.legs = [];
 
         for (const side of [-1, 1]) {
@@ -600,7 +579,6 @@ export class Character extends MyObject {
 
             this.legs.push(leg);
         }
-
 
         // lengan kiri
         this.leftUpperArm = this.addLimb(0.20, 0.165, 0.78, 0.68, -0.80, 0.80, 0.02);
@@ -636,7 +614,6 @@ export class Character extends MyObject {
 
         // ibu jari
         this.addFinger(this.leftHand, -0.13, -0.05, 0, [0.10, 0.08], 0.042, 0.25, -0.65, 0.70);
-
 
         // lengan kanan (memegang pisau)
         this.rightUpperArm = this.addLimb(0.20, 0.165, 0.75, 0.68, 0.77, 0.80, 0.05);
@@ -686,7 +663,6 @@ export class Character extends MyObject {
         // ibu jari menyilang di atas gagang
         this.addFinger(this.rightHand, 0.09, 0.03, 0.03, [0.12, 0.09], 0.046, [0.85, 0.35], 0.10, 0.70);
 
-
         // pisau
         this.knife = new MyObject(this.GL, this.SHADER_PROGRAM, this.locations);
         this.setFrame(this.knife, IDENTITY_ROWS, [[0, -1, 0], [-1, 0, 0], [0, 0, -1]]);
@@ -717,10 +693,9 @@ export class Character extends MyObject {
 
     }
 
-    // tinggi dasar sol (dipakai main.js)
+    // tinggi telapak kaki (dipakai main.js)
     static FOOT_Y = -1.71;
 
-    // pasang kerangka pada part
     setFrame(part, parentRows, rows) {
         const relative = multiplyRows(rows, transposeRows(parentRows));
         const m = part.MOVE_MATRIX;
@@ -733,14 +708,11 @@ export class Character extends MyObject {
         return rows;
     }
 
-    // arahkan lengan
     aimLimb(part, parentRows, direction) {
         return this.setFrame(part, parentRows, frameFromY(v3.neg(direction), [0, 0, 1]));
     }
 
-    // lengan = FRUSTUM (kerucut terpancung, quadric) rTop -> rBottom. Bola sendi
-    // (quadric) dipasang di titik sendi dengan jari-jari sama dengan ujung frustum,
-    // jadi sambungan bahu/siku terlihat mulus. bottomCap = bola di pergelangan.
+    // lengan = frustum, bola di sendi supaya sambungan mulus
     addLimb(rTop, rBottom, length, brightness, x, y, z, bottomCap = false) {
         const limb = this.addMesh(createFrustum(rTop, rBottom, length), brightness, x, y, z);
         limb.childs.push(this.addMesh(createSphere(rTop, rTop, rTop), brightness, 0, 0, 0));
@@ -750,24 +722,22 @@ export class Character extends MyObject {
         return limb;
     }
 
-    // simpan pose dasar (hasil setFrame) supaya animasi bisa menambah ayunan di atasnya
+    // simpan pose dasar lengan
     saveBasePose(...parts) {
         for (const part of parts) part.baseMove = part.MOVE_MATRIX.slice();
     }
 
-    // pose = pose dasar, lalu diputar terhadap SUMBU SEMBARANG (arbitrary rotation)
+    // putar dari pose dasar terhadap sumbu sembarang
     swingAxis(part, axis, angle) {
         part.MOVE_MATRIX = LIBS.multiply(part.baseMove, rotateAxisMatrix(axis, angle));
     }
 
-    // objek kosong
     group(x, y, z) {
         const g = new MyObject(this.GL, this.SHADER_PROGRAM, this.locations);
         LIBS.set_position(g.POSITION_MATRIX, x, y, z);
         return g;
     }
 
-    // jari mulus (satu mesh lewat createSweptTube)
     addFinger(parent, x, y, z, lens, r, curl, splay, brightness) {
         const transformPoint = (m, p) => [0, 1, 2].map(j => p[0] * m[j] + p[1] * m[4 + j] + p[2] * m[8 + j] + m[12 + j]);
 
@@ -804,14 +774,12 @@ export class Character extends MyObject {
         parent.childs.push(this.addMesh(tube, brightness, tube.center[0], tube.center[1], tube.center[2]));
     }
 
-    // putar: Y, X, lalu Z
     rotate(part, ry, rx, rz) {
         LIBS.rotateY(part.MOVE_MATRIX, ry);
         LIBS.rotateX(part.MOVE_MATRIX, rx);
         LIBS.rotateZ(part.MOVE_MATRIX, rz);
     }
 
-    // buat bagian model
     addMesh(shape, brightness, x, y, z, hatching = true) {
         const part = new MyObject(
             this.GL,
@@ -833,18 +801,11 @@ export class Character extends MyObject {
         return part;
     }
 
-    // animasi (time = detik)
-    // 1) rotasi sumbu sembarang : badan/kepala, lengan, kaki (rotateAxisMatrix)
-    // 2) scaling                : napas + squash-stretch badan/kepala, denyut pisau
+    // animasi diam (time dalam detik)
     animasi(time) {
-        if (this.lastTime === null) this.lastTime = time;
-        if (this.animationOn) this.clock += time - this.lastTime;
-        this.lastTime = time;
-        const t = this.clock;
+        const t = time;
 
-        // ---- BADAN + KEPALA (satu mesh; wajah adalah anak badan, jadi ikut bergerak
-        //      bersama dan tidak tenggelam ke permukaan):
-        //      scaling "bernapas" + squash-stretch, rotasi sumbu miring, naik-turun
+        // badan + kepala (satu mesh): napas, miring, naik-turun
         const nafas = Math.sin(t * 2.5);
         const bodyM = scaleMatrix(1 + 0.03 * nafas, 1 + 0.015 * Math.sin(t * 2.5 + 0.6), 1 + 0.03 * nafas);
         const twist = rotateAxisMatrix([0.2, 1, 0.15], Math.sin(t * 1.2) * 0.12);
@@ -853,10 +814,10 @@ export class Character extends MyObject {
         LIBS.translateY(bodyPose, Math.sin(t * 2) * 0.025);
         this.torso.MOVE_MATRIX = bodyPose;
 
-        // grup wajah dibiarkan tetap (tidak digerakkan terpisah dari badan)
+        // wajah ikut badan
         LIBS.set_I4(this.head.MOVE_MATRIX);
 
-        // ---- KAKI: melangkah bergantian, sumbu sedikit miring
+        // kaki
         this.legs.forEach((leg, i) => {
             leg.MOVE_MATRIX = rotateAxisMatrix(
                 [1, 0, 0.15 * (i ? 1 : -1)],
@@ -864,15 +825,15 @@ export class Character extends MyObject {
             );
         });
 
-        // ---- LENGAN KIRI (tangan terbuka): melambai pada sumbu sembarang
+        // lengan kiri
         this.swingAxis(this.leftUpperArm, [0.4, 0.2, 1], Math.sin(t * 2 + Math.PI) * 0.20);
         this.swingAxis(this.leftForearm, [1, -0.3, 0.2], Math.sin(t * 2 + 0.8) * 0.25);
 
-        // ---- LENGAN KANAN (pisau): bahu + lengan bawah menusuk pada sumbu sembarang
+        // lengan kanan (pisau)
         this.swingAxis(this.rightUpperArm, [0.3, 0.1, 1], Math.sin(t * 3) * 0.08);
         this.swingAxis(this.rightForearm, [1, 0.2, -0.25], Math.sin(t * 3 + 0.5) * 0.30);
 
-        // ---- PISAU: denyut scaling kecil (memanjang saat menusuk)
+        // pisau memanjang sedikit saat menusuk
         if (this.knife) {
             if (!this.knife.baseMove) this.knife.baseMove = this.knife.MOVE_MATRIX.slice();
             const k = 1 + 0.04 * Math.sin(t * 3 + 0.5);
@@ -880,22 +841,17 @@ export class Character extends MyObject {
         }
     }
 
-    // =====================================================================
-    //  KLIP ANIMASI UNTUK STORYBOARD (dipakai lewat animasiStoryboard)
-    //  Posisi/arah/ukuran seluruh karakter disimpan di MOVE_MATRIX akar
-    //  (this.MOVE_MATRIX), jadi tidak mengganggu pose bagian-bagiannya.
-    //  Karakter menghadap +z (wajah ke kamera). yaw=+PI/2 -> menghadap +x (kanan).
-    // =====================================================================
+    // klip animasi untuk storyboard
+    // karakter menghadap +z; yaw PI/2 = menghadap kanan (+x)
 
-    // matriks dunia: scaling -> yaw (putar Y) -> translasi.  Skala dikompensasi
-    // supaya telapak kaki tetap menapak tanah saat karakter membesar.
+    // posisi, arah, dan ukuran karakter (kaki tetap menapak saat membesar)
     setWorld(x, y, z, yaw, scale = 1) {
         const m = LIBS.multiply(scaleMatrix(scale, scale, scale), rotateAxisMatrix([0, 1, 0], yaw));
         LIBS.set_position(m, x, y + (scale - 1) * -Character.FOOT_Y, z);
         this.MOVE_MATRIX = m;
     }
 
-    // pose badan: napas kecil + bob naik-turun + condong ke depan (lean, sumbu X)
+    // pose badan saat berlari
     poseBody(t, bob = 0.025, lean = 0, bobSpeed = 2) {
         const nafas = Math.sin(t * 2.5);
         const m = scaleMatrix(1 + 0.03 * nafas, 1 + 0.015 * nafas, 1 + 0.03 * nafas);
@@ -905,31 +861,29 @@ export class Character extends MyObject {
         LIBS.set_I4(this.head.MOVE_MATRIX);
     }
 
-    // siklus jalan/lari. phase = sudut siklus (rad), amp = ayun kaki, armAmp = ayun tangan kiri.
-    // raiseKnife = 0..1 : mengangkat lengan pisau (pose mengejar)
+    // siklus jalan/lari (raiseKnife 0..1 = lengan pisau terangkat)
     poseGait(phase, amp, armAmp, raiseKnife = 0) {
         this.legs.forEach((leg, i) => {
             const a = Math.sin(phase + i * Math.PI) * amp;
             leg.MOVE_MATRIX = rotateAxisMatrix([1, 0, 0], a);
         });
-        // tangan kiri berlawanan fase dengan kaki kiri
+        // tangan kiri berlawanan dengan kaki kiri
         this.swingAxis(this.leftUpperArm, [1, 0, 0.1], Math.sin(phase) * armAmp);
         this.swingAxis(this.leftForearm, [1, 0, 0], -0.25 - 0.25 * Math.sin(phase));
-        // tangan pisau: diam menggenggam, diangkat ke depan saat mengejar
+        // tangan pisau diangkat saat mengejar
         this.swingAxis(this.rightUpperArm, [1, 0, 0], -raiseKnife * 0.9 + Math.sin(phase + Math.PI) * armAmp * 0.3);
         this.swingAxis(this.rightForearm, [1, 0, 0], -raiseKnife * 0.5);
     }
 
-    // SCALING per beat: pada beat ke-n, hanya karakter ber-slot (n mod jumlah) yang membesar
-    // lalu kembali ke ukuran normal sebelum beat berikutnya.  Mengembalikan faktor skala.
+    // skala membesar hanya saat beat gilirannya, lalu kembali normal
     scaleBeat(t, bpm = 120, slot = 0, count = 3, maxScale = 1.6) {
         const beat = t * bpm / 60;
         const idx = Math.floor(beat), frac = beat - idx;
         if (((idx % count) + count) % count !== slot) return 1;
-        return 1 + (maxScale - 1) * Math.sin(Math.PI * frac);      // 1 -> max -> 1
+        return 1 + (maxScale - 1) * Math.sin(Math.PI * frac);
     }
 
-    // klip 1: jalan pelan-pelan menuju kamera (kamera di kaki)
+    // jalan pelan menuju kamera
     clipWalkOut(p) {                       // p = 0..1
         const t = p * 6;
         this.poseBody(t * 0.9, 0.02, 0, 3);
@@ -937,7 +891,7 @@ export class Character extends MyObject {
         this.setWorld(0, 0, -5 + 5 * p, 0, 1);
     }
 
-    // klip 2: lari kiri -> kanan, side-view 2D
+    // lari kiri ke kanan (side view)
     clipRunSide(p) {
         const t = p * 8;
         this.poseBody(t, 0.05, 0.18, 9);
@@ -945,7 +899,7 @@ export class Character extends MyObject {
         this.setWorld(-6 + 12 * p, 0, 0, Math.PI / 2, 1);
     }
 
-    // klip 3: berhenti, badan berbalik 180 derajat pelan-pelan (menghadap -> membelakangi kamera)
+    // balik badan 180 derajat pelan-pelan
     clipTurnAround(p) {
         const e = p * p * (3 - 2 * p);     // smoothstep
         this.poseBody(p * 4, 0.02, 0, 3);
@@ -953,7 +907,7 @@ export class Character extends MyObject {
         this.setWorld(0, 0, 0, Math.PI * e, 1);
     }
 
-    // klip 4: lari di tempat (latar berganti) + scaling bergantian tiap beat
+    // lari di tempat + scaling per beat
     clipInfiniteRun(t, slot = 0, scaleOn = true, bpm = 120) {
         this.poseBody(t, 0.05, 0.18, 9);
         this.poseGait(t * 9, 0.8, 0.6, 0.6);
@@ -961,13 +915,12 @@ export class Character extends MyObject {
         this.setWorld(0, 0, 0, Math.PI / 2, sc);
     }
 
-    // klip 5 (outro): lari mengitari pilar = ROTASI SUMBU SEMBARANG.
-    // Posisi karakter diputar terhadap sumbu `axis` yang melalui titik `center`.
+    // lari mengitari pilar (rotasi sumbu sembarang)
     clipOrbit(t, center = [0, 0, 0], radius = 2.5, axis = [0, 1, 0], speed = 0.9) {
         const ang = t * speed;
         this.poseBody(t, 0.05, 0.18, 9);
         this.poseGait(t * 9, 0.8, 0.6, 0.4);
-        // menghadap arah gerak (yaw PI), geser sejauh radius, lalu putar terhadap sumbu pilar
+        // hadap arah gerak, geser sejauh radius, lalu putar mengelilingi sumbu pilar
         let m = rotateAxisMatrix([0, 1, 0], Math.PI);
         LIBS.translateX(m, radius);
         m = LIBS.multiply(m, rotateAxisMatrix(axis, ang));
@@ -975,8 +928,7 @@ export class Character extends MyObject {
         this.MOVE_MATRIX = m;
     }
 
-    // Satu garis waktu penuh sesuai storyboard (detik). Panggil tiap frame: char.animasiStoryboard(t)
-    // slot = urutan Knifo dalam giliran scaling beat (0, 1, atau 2; ikuti kesepakatan kelompok)
+    // urutan adegan; slot = giliran Knifo saat scaling per beat
     animasiStoryboard(time, slot = 0, loop = true) {
         const D = Character.STORY;
         const total = D.walk + D.run + D.turn + D.beats + D.normal + D.orbit;
@@ -995,5 +947,5 @@ export class Character extends MyObject {
     }
 }
 
-// durasi tiap adegan Knifo (detik) -- ubah sesuai video akhir
+// durasi tiap adegan (detik)
 Character.STORY = { walk: 6, run: 8, turn: 4, beats: 8, normal: 2, orbit: 10 };
