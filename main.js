@@ -879,11 +879,6 @@ function main() {
             if (toggle.distance >= forward.distance) {
                 toggle.active = false;
                 toggle.checkbox.checked = false;
-                if (toggle.name === "knifo" && KNIFO_SCENE.sequencePending) {
-                    KNIFO_SCENE.sequencePending = false;
-                    knifo.animationOn = false;
-                    animationToggles.find(item => item.character === knifo).checkbox.checked = false;
-                }
             }
         });
 
