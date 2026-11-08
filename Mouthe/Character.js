@@ -189,8 +189,7 @@ export class Character extends MyObject {
         LIBS.rotateZ(this.head.MOVE_MATRIX, Math.sin(t * 1.2) * 0.03);
         LIBS.rotateX(this.head.MOVE_MATRIX, -0.18 + Math.sin(t * 1.5) * 0.04);
         LIBS.set_I4(this.jaw.MOVE_MATRIX);
-        LIBS.rotateX(this.jaw.MOVE_MATRIX, this.animationOn ? 0.30 + 0.22 * Math.sin(t * 0) : JAW_OPEN_WHEN_STILL);
-
+        LIBS.rotateX(this.jaw.MOVE_MATRIX, 0.30);
         this.arms.forEach(({ upperArm, forearm, pose }) => {
             LIBS.set_I4(upperArm.MOVE_MATRIX);
             LIBS.rotateX(upperArm.MOVE_MATRIX, pose.upperForward + pose.swingDirection * armSwing * pose.swingAmount);
