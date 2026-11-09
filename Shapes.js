@@ -139,14 +139,14 @@ export function cone(radius, height, segments) {
     return finish(vertices, indices);
 }
 
-// hemisphere
-export function hemisphere(rx, ry, rz, latBands, longBands, isTop) {
-    const { vertices, indices } = sphereSurface(rx, ry, rz, latBands, longBands, isTop ? 0 : Math.PI / 2, Math.PI / 2);
+// setengah ellipsoid dengan bidang potongan tertutup
+export function halfEllipsoid(rx, ry, rz, latBands, longBands, isUpperHalf) {
+    const { vertices, indices } = sphereSurface(rx, ry, rz, latBands, longBands, isUpperHalf ? 0 : Math.PI / 2, Math.PI / 2);
     const center = vertices.length / 3;
     vertices.push(0, 0, 0);
-    const edge = (isTop ? latBands : 0) * (longBands + 1);        
+    const edge = (isUpperHalf ? latBands : 0) * (longBands + 1);
     for (let j = 0; j < longBands; j++) {
-        if (isTop) indices.push(center, edge + j + 1, edge + j); else indices.push(center, edge + j, edge + j + 1);
+        if (isUpperHalf) indices.push(center, edge + j + 1, edge + j); else indices.push(center, edge + j, edge + j + 1);
     }
     return finish(vertices, indices);
 }

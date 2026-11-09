@@ -65,11 +65,11 @@ export class Character extends MyObject {
         this.childs.push(this.torso);
 
         // head + jaw 
-        this.head = this.addMesh(Shape.hemisphere(HEAD.radiusX, HEAD.upperHeight, HEAD.radiusZ, 28, 36, true), 0.82, 0, HEAD.offsetY, HEAD.offsetZ);
+        this.head = this.addMesh(Shape.halfEllipsoid(HEAD.radiusX, HEAD.upperHeight, HEAD.radiusZ, 28, 36, true), 0.82, 0, HEAD.offsetY, HEAD.offsetZ);
         this.torso.childs.push(this.head);
 
         const jawHingeZ = HEAD.radiusZ * 0.8;
-        const lowerHead = Shape.hemisphere(HEAD.radiusX, HEAD.lowerHeight, HEAD.radiusZ, 28, 36, false);
+        const lowerHead = Shape.halfEllipsoid(HEAD.radiusX, HEAD.lowerHeight, HEAD.radiusZ, 28, 36, false);
         this.jaw = this.addMesh(Shape.move(lowerHead, 0, 0, jawHingeZ), 0.76, 0, 0, -jawHingeZ);
         this.head.childs.push(this.jaw);
 
