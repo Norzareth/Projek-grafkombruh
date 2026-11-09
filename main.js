@@ -80,8 +80,12 @@ const FRAGMENT_SHADER = `
         vec3 color = u_color * v_vertexColor * shade;
 
         if (u_hatch > 4.5) {
-            float beamPulse = 0.9 + 0.1 * sin(v_worldPosition.z * 2.0);
-            gl_FragColor = vec4(vec3(1.0, 0.015, 0.01) * beamPulse, 0.2);
+            float beamDistance = dot(
+                v_worldPosition - u_redLightPosition,
+                normalize(u_redLightDirection)
+            );
+            float beamPulse = 0.9 + 0.1 * sin(beamDistance * 2.0);
+            gl_FragColor = vec4(vec3(1.0, 0.015, 0.01) * beamPulse, 0.32);
             return;
         }
 

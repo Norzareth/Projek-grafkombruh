@@ -51,6 +51,7 @@ function createEllipsoid(rx, ry, rz, rings = 8, seg = 12) {
     return createMesh(vertices, faces, true);
 }
 
+//Prisma constructor
 // prisma utk badan, kepala, kaki atas, turret
 // depan & belakang diisi array koordinat bentuk, axis = arah perpanjangan
 function createPrism(depan, belakang, tinggi, axis = "z") {
@@ -93,9 +94,11 @@ function createPrism(depan, belakang, tinggi, axis = "z") {
     return createMesh(vertices, faces, false);
 }
 
+
 //
-//cylinder
-//
+//cylinder (must remain unharmed)
+//note: axis = "y" (default) & "z" utk cylinder vertical / horizontal 
+
 function createCylinder(radius, height, axis = "y", segments = 12) {
     var vertices = [];
     var faces = [];
@@ -133,32 +136,35 @@ function createCylinder(radius, height, axis = "y", segments = 12) {
     return createMesh(vertices, faces, true);
 }
 
-function createSpotlightBeam(length, nearRadius, farRadius, segments = 24) {
+
+//
+// cone lampu/laser
+//
+function createSpotlightBeam(length, radius, segments = 24) {
     const vertices = [], faces = [];
-    for (let ring = 0; ring < 2; ring++) {
-        const radius = ring === 0 ? nearRadius : farRadius;
-        const z = ring === 0 ? 0 : -length;
-        for (let segment = 0; segment < segments; segment++) {
-            const angle = 2 * Math.PI * segment / segments;
-            vertices.push(radius * Math.cos(angle), radius * Math.sin(angle), z);
-        }
+    vertices.push(0, 0, 0);
+    //lingkaran alas
+    for (let segment = 0; segment < segments; segment++) {
+        const angle = 2 * Math.PI * segment / segments;
+        vertices.push(radius * Math.cos(angle), radius * Math.sin(angle), -length);
     }
+    //segi3 dari titik2 lingkaran ke tipun
     for (let segment = 0; segment < segments; segment++) {
         const next = (segment + 1) % segments;
-        const far = segment + segments;
-        const farNext = next + segments;
-        faces.push(segment, next, farNext, segment, farNext, far);
+        faces.push(0, segment + 1, next + 1);
     }
     return createMesh(vertices, faces, true);
 }
 
+
 //
-// Hemisphere
-// telapak bulat dari tumpukan cincin. Jari-jari mengikuti r(y) = R * sqrt(1 - (y/H)^2)
+// Hemisphere kaki
+// telapak bulat dari tumpukan cincin. Jari-jarinya r(y) = R * sqrt(1 - (y/H)^2)
 function createHemisphereFoot(radius, height, segments = 12, rings = 5) {
     var vertices = [];
     var faces = [];
 
+    //titik2 rings 
     for (var ring = 0; ring <= rings; ring++) {
         var fraction = ring / rings;
         var ringRadius = radius * Math.sqrt(Math.max(0, 1 - fraction * fraction));
@@ -169,6 +175,7 @@ function createHemisphereFoot(radius, height, segments = 12, rings = 5) {
         }
     }
 
+    //pembuatan segi3
     for (var row = 0; row < rings; row++) {
         for (var side = 0; side < segments; side++) {
             var first = row * (segments + 1) + side;
@@ -185,7 +192,7 @@ function createHemisphereFoot(radius, height, segments = 12, rings = 5) {
 // curve = daftar segmen [P0, P1, P2, P3] (titik 2D [x, y]); tiap segmen = satu lengkung "3"
 //
 function createBezierTube(curve, radius, stepsPerSegment = 16, sides = 8) {
-    // titik-titik sepanjang kurva (sambungan antar-segmen tidak diulang)
+    // titik-titik sepanjang kurva (dari beziar)
     var path = [];
     curve.forEach(function (segment, index) {
         for (var step = index === 0 ? 0 : 1; step <= stepsPerSegment; step++) {
@@ -347,7 +354,7 @@ export class Character extends MyObject {
         //light beam & barrel end (cahaya merah)
         this.barrelEnd = this.addMesh(createCylinder(0.075, 0.015, "z"), dark, 0, 0, -0.515);
         barrel.childs.push(this.barrelEnd);
-        this.lightBeam = this.addMesh(createSpotlightBeam(9, 0.12, 1.8), [1, 0.015, 0.01], 0, 0, -0.53, false);
+        this.lightBeam = this.addMesh(createSpotlightBeam(9, 1.8), [1, 0.015, 0.01], 0, 0, -0.525, false);
         this.lightBeam.hatching = 5;
         this.lightBeam.transparent = true;
         this.lightBeam.visible = this.lightOn;
