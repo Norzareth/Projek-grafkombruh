@@ -242,7 +242,7 @@ function createBezierTube(curve, radius, stepsPerSegment = 16, sides = 8) {
 //
 //shapesnya
 //
-// nilai awal toggle animasi khusus Gundog (diubah dengan toggle [2] di halaman)
+
 const ANIMATION_ON_AT_START = true;
 
 export class Character extends MyObject {
@@ -290,11 +290,15 @@ export class Character extends MyObject {
             [-0.5, 0.3]
         ];
 
+        //
         //badan
+        //
         var body = this.addMesh(createPrism(bodyOutline, bodyOutline, 1.9), armor, 0, 0, 0.15);
         this.childs.push(body);
 
+        //
         //kepala
+        //
         var head = this.addMesh(createPrism(headOutlineDepan, headOutlineBelakang, 0.48), armorLight, 0, 0.03, -0.99);
         body.childs.push(head);
 
@@ -316,12 +320,15 @@ export class Character extends MyObject {
 
         var face = this.addMesh(createPrism(headOutlineDepan, headOutlineDepan, 0.02), armorDark, 0, 0, -0.25);
         head.childs.push(face);
+
+        //
         // turret
+        //
         //turret ring
         var turretRing = this.addMesh(createCylinder(0.31, 0.16), armorShade, 0, 0.52, 0.12);
         body.childs.push(turretRing);
 
-        // Turret pivot sits at the same world-local position as before, directly under the body.
+        // pivot point turret pada badan
         var turretBase = this.createJoint(0, 0.70, 0.24);
         body.childs.push(turretBase);
         this.turret = turretBase;
@@ -345,15 +352,20 @@ export class Character extends MyObject {
         var turretTop = this.addMesh(createPrism(turretTopOutline, turretTopOutline, 0.68, "x"), armorShade, 0, 0, 0.02);
         turretBase.childs.push(turretTop);
 
-        // Barrel-mounted parts inherit the turret body's transform.
+        // turret barrel
         var barrel = this.addMesh(createCylinder(0.105, 0.82, "z"), armorLight, 0, 0.04, -0.76);
         turretBody.childs.push(barrel);
+
+        // turret muzzle
         var muzzle = this.addMesh(createCylinder(0.14, 0.13, "z"), armorShade, 0, 0, -0.44);
         barrel.childs.push(muzzle);
 
-        //light beam & barrel end (cahaya merah)
+        // note: pake this supaya bisa ditoggle on/off
+        // turret barrel end (lampu/laser), bisa ganti warna sesuai toggle
         this.barrelEnd = this.addMesh(createCylinder(0.075, 0.015, "z"), dark, 0, 0, -0.515);
         barrel.childs.push(this.barrelEnd);
+
+        //light beam/laser
         this.lightBeam = this.addMesh(createSpotlightBeam(9, 1.8), [1, 0.015, 0.01], 0, 0, -0.525, false);
         this.lightBeam.hatching = 5;
         this.lightBeam.transparent = true;
@@ -364,7 +376,7 @@ export class Character extends MyObject {
         //kaki
         this.legs = [];
         var legPositions = [
-            // x, y, z, derajat kemiringan
+            // x, y, z, derajat kemiringan (dari titik tengah badan)
             [-0.95, 0.1, -0.70, -12],//kiri depan
             [0.95, 0.1, -0.70, 12],//kanan depan
             [-0.95, 0.1, 0.68, -12],//kiri belakang
@@ -463,14 +475,14 @@ export class Character extends MyObject {
     }
 
     animasi(time) {
-        // time dalam milidetik. Gelombang sinus berulang; fase berlawanan membuat kaki bergantian.
+        // time milidetik. Gelombang sin berulang; fase berlawanan membuat kaki bergantian.
         // jam sendiri: berhenti saat animasi dimatikan, lanjut dari pose yang sama saat dinyalakan lagi
         if (this.lastTime === null) this.lastTime = time;
         if (this.animationOn) this.clock += time - this.lastTime;
         this.lastTime = time;
         var cycle = this.clock * 0.004;
         this.legs.forEach(function (leg) {
-            // Pinggul mengayun depan/belakang. Lutut hanya menekuk pada separuh ayunan ke belakang.
+            // Pinggul mengayun depan/belakang. Lutut nekuk pada separuh ayunan ke belakang.
             var swing = 0.38 * Math.sin(cycle + leg.phase * Math.PI);
             var kneeBend = Math.max(0, -swing) * 0.65;
             LIBS.set_I4(leg.hip.MOVE_MATRIX);
