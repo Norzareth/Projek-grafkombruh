@@ -38,8 +38,8 @@ const LEFT_LEG_STILL_POSE  = { hipX: 0.6, thighAngle: -0.30, kneeAngle: 0.30, an
 
 // pose kaki saat berjalan 
 const walkingLegPoses = step => ({
-    right: { hipX: -0.6, thighAngle: -0.1 + step * 0.45, kneeAngle: 0.2 + Math.max(0, -step) * 0.9, ankleFactor: 0.5 },
-    left:  { hipX: 0.6,  thighAngle: -0.1 - step * 0.45, kneeAngle: 0.2 + Math.max(0,  step) * 0.9, ankleFactor: 0.5 }
+    right: { thighAngle: -0.1 + step * 0.45, kneeAngle: 0.2 + Math.max(0, -step) * 0.9, ankleFactor: 0.5 },
+    left:  { thighAngle: -0.1 - step * 0.45, kneeAngle: 0.2 + Math.max(0,  step) * 0.9, ankleFactor: 0.5 }
 });
 
 function pointOnUpperHead(theta, phi, outward) {
