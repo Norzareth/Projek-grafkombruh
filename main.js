@@ -1,11 +1,10 @@
-// main.js : setup WebGL, kamera, mouse, dan loop render untuk environment dan karakter.
-
-import { Character as Mouthe } from "./Mouthe/Character.js";   
+import { Character as Mouthe } from "./Mouthe/Character.js";
 import { Environment } from "./environment.js";
-import { Character as Gundog } from "./Gundog/Character.js";   
-import { Character as Knifo } from "./Knifo/Character.js";     
+import { Character as Gundog } from "./Gundog/Character.js";
+import { Character as Knifo } from "./Knifo/Character.js";
 import { Tile } from "./Tile.js";
 
+// elephant
 const TILE_CONFIG = {
     x: -520, y: -4.85, z: 110,
     width: 20, depth: 20,
@@ -13,6 +12,7 @@ const TILE_CONFIG = {
     opacity: 0.5
 };
 
+// Shader
 const VERTEX_SHADER = `
     attribute vec3 a_position;
     attribute vec3 a_normal;
@@ -37,6 +37,7 @@ const VERTEX_SHADER = `
     }
 `;
 
+// Shader warna, pencahayaan, tekstur, dan pola pada setiap permukaan.
 const FRAGMENT_SHADER = `
     precision mediump float;
     varying vec3 v_normal;
@@ -45,7 +46,7 @@ const FRAGMENT_SHADER = `
     varying vec3 v_worldNormal;
     varying vec2 v_uv;
     uniform vec3 u_color;
-    uniform float u_hatch;      // material: 2 lantai, 3 dinding, 4 rangka pilar
+    uniform float u_hatch;      // material: 2 lantai, 3 dinding, 4 rangka pilar.
     uniform float u_hasTexture;
     uniform float u_textureOpacity;
     uniform sampler2D u_texture;
@@ -54,8 +55,10 @@ const FRAGMENT_SHADER = `
     uniform float u_redLightEnabled;
     uniform float u_redLightRange;
 
+    // rand value semu yang konsisten dari koordinat dua dimensi.
     float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 
+    // Membuat noise halus dengan mencampur nilai acak dari empat titik sekitar.
     float valueNoise(vec2 p) {
         vec2 i = floor(p);
         vec2 f = fract(p);
@@ -68,6 +71,7 @@ const FRAGMENT_SHADER = `
     }
 
     void main(void) {
+        // Hitung pencahayaan dasar dari arah normal permukaan.
         vec3 normal = normalize(v_normal);
         float backFaceDarkness = 1.0;
         if (!gl_FrontFacing) { normal = -normal; backFaceDarkness = 0.55; }
@@ -79,6 +83,7 @@ const FRAGMENT_SHADER = `
         shade *= backFaceDarkness;
         vec3 color = u_color * v_vertexColor * shade;
 
+        // Beri warna khusus pada berkas laser lalu lewati pewarnaan material biasa.
         if (u_hatch > 4.5) {
             float beamDistance = dot(
                 v_worldPosition - u_redLightPosition,
@@ -89,6 +94,7 @@ const FRAGMENT_SHADER = `
             return;
         }
 
+        // Tambahkan cahaya merah dari lampu Gundog sesuai arah dan jaraknya.
         vec3 fromLight = v_worldPosition - u_redLightPosition;
         float lightDistance = length(fromLight);
         vec3 lightRay = fromLight / max(lightDistance, 0.0001);
@@ -98,6 +104,7 @@ const FRAGMENT_SHADER = `
         float redIllumination = max(dot(worldNormal, -lightRay), 0.0) * cone * reach * u_redLightEnabled;
         color += vec3(1.0, 0.015, 0.01) * redIllumination * 2.0;
 
+        // Beri lantai pola warna dan garis sambungan antarbagian.
         if (u_hatch > 1.5 && u_hatch < 2.5) {
             vec2 surface = v_worldPosition.xz * 0.42;
             float broad = valueNoise(surface * 0.22);
@@ -111,6 +118,7 @@ const FRAGMENT_SHADER = `
             ));
             float floorTexture = mix(0.52 + mottling * 0.72, 0.32 + mottling * 0.38, 1.0 - seams);
             color *= floorTexture;
+        // Beri dinding tekstur kotoran, guratan, dan goresan berdasarkan arah permukaannya.
         } else if (u_hatch > 2.5 && u_hatch < 3.5) {
             vec3 weights = pow(abs(normalize(v_worldNormal)), vec3(4.0));
             weights /= max(weights.x + weights.y + weights.z, 0.0001);
@@ -136,12 +144,14 @@ const FRAGMENT_SHADER = `
                 scratchX * weights.x + scratchY * weights.y + scratchZ * weights.z);
             float grime = broad * 0.35 + medium * 0.35 + grit * 0.18 + verticalStreak * 0.12;
             color *= 0.38 + grime * 0.78 - scratches * 0.12;
+        // Beri rangka pilar pola oksidasi.
         } else if (u_hatch > 3.5) {
             vec2 surface = v_worldPosition.xy * 1.7 + v_worldPosition.zy * 0.7;
             float oxide = valueNoise(surface * 0.32) * 0.52
                         + valueNoise(surface * 2.4) * 0.32
                         + hash(floor(surface * 14.0)) * 0.16;
             color *= 0.38 + oxide * 0.72;
+        // Untuk material lain, gambar arsiran pada bagian yang lebih gelap.
         } else if (u_hatch > 0.5) {
             vec2 pixel = gl_FragCoord.xy;
             float lineA = step(0.55, sin((pixel.x + pixel.y) * 1.6) * 0.5 + 0.5);
@@ -152,6 +162,7 @@ const FRAGMENT_SHADER = `
             float grain = (hash(floor(pixel)) - 0.5) * 0.08;
             color = color * (1.0 - hatching) + grain;
         }
+        // Campurkan warna tekstur jika objek menggunakan gambar.
         if (u_hasTexture > 0.5) {
             vec4 imageColor = texture2D(u_texture, v_uv);
             gl_FragColor = vec4(clamp(color * imageColor.rgb, 0.0, 1.0), imageColor.a * u_textureOpacity);
@@ -161,7 +172,7 @@ const FRAGMENT_SHADER = `
     }
 `;
 
-// Posisi karakter di environment
+// Posisi, arah hadap, target pandang karakter (derajat)
 const GUNDOG = {
     x: -515, z: 140,
     footY: -1.7,
@@ -184,8 +195,10 @@ const MOUTHE = {
     rotationY: 0
 };
 const CHARACTER_PLACEMENTS = { mouthe: MOUTHE, gundog: GUNDOG, knifo: KNIFO };
+// 1 / -1 menentukan arah depan lokal masing-masing karakter.
 const CHARACTER_FORWARD = { mouthe: 1, gundog: -1, knifo: 1 };
 
+// sudut hadap karakter; karakter diarahkan ke karakter targetnya.
 function characterYaw(name) {
     const character = CHARACTER_PLACEMENTS[name];
     const rotationOffset = LIBS.degToRad(character.rotationY ?? 0);
@@ -204,12 +217,15 @@ function characterYaw(name) {
     const forward = CHARACTER_FORWARD[name];
     return Math.atan2(forward * dx, forward * dz) + rotationOffset;
 }
+
+// Simpan arah awal semua karakter dalam radian untuk transformasi dan gerakan.
 const CHARACTER_YAWS = {
     mouthe: characterYaw("mouthe"),
     gundog: characterYaw("gundog"),
     knifo: characterYaw("knifo")
 };
 
+// Pastikan semua koordinat karakter valid sebelum scene dibuat.
 function validateCharacterPositions() {
     for (const [name, position] of Object.entries(CHARACTER_PLACEMENTS)) {
         if (!Number.isFinite(position.x) || !Number.isFinite(position.z)) {
@@ -218,24 +234,27 @@ function validateCharacterPositions() {
     }
 }
 
-// Scale karakter
+// Skala awal setiap karakter.
 const CHARACTER_SCALE = {
     mouthe: 1,
     gundog: 3,
     knifo: 3
 };
-// Speed animasi karakter
+// Pengali kecepatan animasi untuk setiap karakter.
 const ANIMATION_SPEED = {
     mouthe: 4,
     gundog: 4,
     knifo: 3
 };
-const MOUTHE_FOOT_Y = -5.88; 
-const CHARACTER_FORWARD_SPEED = 50; // Kecepatan gerak maju karakter
+const MOUTHE_FOOT_Y = -5.88;
+const CHARACTER_FORWARD_SPEED = 50; // Kecepatan gerak maju karakter.
 
+// Jarak, kecepatan, arah, dan besar putaran yang tersedia untuk tiap karakter.
 const CHARACTER_MOTION = {
     mouthe: {
+        //forward: jarak, kecepatan
         forward: { distance: 10000, speed: CHARACTER_FORWARD_SPEED },
+        //rotation: direction (1 ccw,-1 cw), angle: besar putaran(rads), speed:kecepatan(rads/detik)
         rotation: { direction: 1, angle: Math.PI * 2, speed: Math.PI / 4 }
     },
     gundog: {
@@ -248,7 +267,7 @@ const CHARACTER_MOTION = {
     }
 };
 
-
+// Hentikan proses lebih awal jika pengaturan animasi atau gerakan tidak masuk akal.
 if (Object.values(ANIMATION_SPEED).some(speed => !Number.isFinite(speed) || speed < 0)) {
     throw new Error("ANIMATION_SPEED values must be finite numbers greater than or equal to 0.");
 }
@@ -264,13 +283,15 @@ for (const [name, motion] of Object.entries(CHARACTER_MOTION)) {
     }
 }
 
+// Siapkan canvas, konteks WebGL, shader, kamera, objek, dan animasi utama.
 function main() {
-    //Canvas dan WebGL
+    // Ambil canvas, sesuaikan ukurannya dengan jendela, lalu buat konteks WebGL.
     const CANVAS = document.getElementById("myCanvas");
     CANVAS.width = window.innerWidth;
     CANVAS.height = window.innerHeight;
     const GL = CANVAS.getContext("webgl");
 
+    // Kompilasi satu shader dan laporkan kesalahan kompilasi ke konsol.
     const compile = (type, source) => {
         const shader = GL.createShader(type);
         GL.shaderSource(shader, source);
@@ -278,13 +299,15 @@ function main() {
         if (!GL.getShaderParameter(shader, GL.COMPILE_STATUS)) console.error(GL.getShaderInfoLog(shader));
         return shader;
     };
+    // Gabungkan shader vertex dan fragmen menjadi program yang dipakai untuk menggambar.
     const SHADER_PROGRAM = GL.createProgram();
     GL.attachShader(SHADER_PROGRAM, compile(GL.VERTEX_SHADER, VERTEX_SHADER));
     GL.attachShader(SHADER_PROGRAM, compile(GL.FRAGMENT_SHADER, FRAGMENT_SHADER));
     GL.linkProgram(SHADER_PROGRAM);
     GL.useProgram(SHADER_PROGRAM);
 
-    const locations = {                  
+    // Simpan lokasi atribut dan uniform agar mudah dipakai saat menggambar objek.
+    const locations = {
         position: GL.getAttribLocation(SHADER_PROGRAM, "a_position"),
         normal:   GL.getAttribLocation(SHADER_PROGRAM, "a_normal"),
         vertexColor: GL.getAttribLocation(SHADER_PROGRAM, "a_vertexColor"),
@@ -300,6 +323,7 @@ function main() {
         redLightEnabled: GL.getUniformLocation(SHADER_PROGRAM, "u_redLightEnabled"),
         redLightRange: GL.getUniformLocation(SHADER_PROGRAM, "u_redLightRange")
     };
+    // Aktifkan atribut titik dan siapkan nilai awal untuk tekstur serta lampu merah.
     GL.enableVertexAttribArray(locations.position);
     GL.enableVertexAttribArray(locations.normal);
     GL.enableVertexAttribArray(locations.vertexColor);
@@ -310,13 +334,14 @@ function main() {
     GL.uniform1f(locations.redLightEnabled, 0);
     GL.uniform1f(locations.redLightRange, 48);
 
-    // FOV
+    // Ambil lokasi matriks kamera dan elemen UI untuk mengatur sudut pandang.
     const _Pmatrix = GL.getUniformLocation(SHADER_PROGRAM, "u_projection");
     const _Vmatrix = GL.getUniformLocation(SHADER_PROGRAM, "u_view");
     const near = 0.1, far = 2000.0;
     const fovSlider = document.getElementById("fovSlider");
     const fovValue = document.getElementById("fovValue");
     let fovY = Number(fovSlider.value) * Math.PI / 180;
+    // Perbarui matriks proyeksi dan label ketika nilai FOV berubah.
     const updateProjection = () => {
         fovY = Number(fovSlider.value) * Math.PI / 180;
         const f = 1 / Math.tan(fovY / 2), nf = 1 / (near - far);
@@ -332,10 +357,11 @@ function main() {
     fovSlider.addEventListener("input", updateProjection);
     updateProjection();
 
+    // Aktifkan uji kedalaman dan atur area gambar sesuai ukuran canvas.
     GL.enable(GL.DEPTH_TEST);
     GL.viewport(0, 0, CANVAS.width, CANVAS.height);
 
-    // Camera
+    // Nilai awal kamera dan batas pengaturan geraknya.
     const camera = { x: 0, y: 3, z: 18, yaw: 0, pitch: -0.12 };
     const CAMERA_STORAGE_KEY = "projek-grafkombruh.camera.v1";
     const pressedKeys = new Set();
@@ -349,6 +375,7 @@ function main() {
     const LOOK_SENSITIVITY_MAX = 4;
     const PITCH_LIMIT = Math.PI / 2 - 0.01;
     let cameraStorageAvailable = true;
+    // Pulihkan posisi serta sensitivitas kamera dari penyimpanan sesi jika tersedia.
     try {
         const savedCamera = sessionStorage.getItem(CAMERA_STORAGE_KEY);
         if (savedCamera) {
@@ -374,6 +401,7 @@ function main() {
             console.warn("Could not access session storage for the camera.", storageError);
         }
     }
+    // Simpan kondisi kamera; hentikan penyimpanan jika browser menolak akses storage.
     const saveCameraState = () => {
         if (!cameraStorageAvailable) return;
         try {
@@ -391,15 +419,18 @@ function main() {
             console.warn("Could not save camera state.", error);
         }
     };
+    // Simpan keadaan awal dan simpan kembali saat halaman akan ditutup.
     saveCameraState();
     window.addEventListener("pagehide", saveCameraState);
     let lastCameraSave = performance.now();
     const controls = document.getElementById("cameraControls");
+    // Tombol E menyembunyikan atau menampilkan panel antarmuka.
     window.addEventListener("keydown", event => {
         if (event.key.toLowerCase() !== "e" || event.repeat) return;
         document.body.classList.toggle("ui-hidden");
         event.preventDefault();
     });
+    // Tampilkan petunjuk kontrol dan nilai kecepatan kamera terkini.
     const updateControls = () => {
         const cameraHint = document.pointerLockElement === CANVAS
             ? "WASD move  |  Space rise  |  Shift descend  |  E UI  |  Esc release mouse"
@@ -409,13 +440,16 @@ function main() {
     };
     updateControls();
 
+    // Klik pada canvas mengunci pointer agar gerakan mouse dapat mengendalikan kamera.
     CANVAS.addEventListener("click", () => {
         if (document.pointerLockElement !== CANVAS) CANVAS.requestPointerLock();
     });
+    // Bersihkan tombol yang dianggap ditekan ketika status pointer lock berubah.
     document.addEventListener("pointerlockchange", () => {
         pressedKeys.clear();
         updateControls();
     });
+    // Gerakkan arah pandang kamera mengikuti gerakan mouse selama pointer terkunci.
     document.addEventListener("mousemove", event => {
         if (document.pointerLockElement !== CANVAS) return;
         camera.yaw -= event.movementX * MOUSE_SENSITIVITY * lookSensitivity;
@@ -424,6 +458,7 @@ function main() {
             Math.min(PITCH_LIMIT, camera.pitch - event.movementY * MOUSE_SENSITIVITY * lookSensitivity)
         );
     });
+    // Roda mouse mengubah kecepatan gerak kamera dalam batas yang ditentukan.
     document.addEventListener("wheel", event => {
         if (document.pointerLockElement !== CANVAS) return;
         event.preventDefault();
@@ -432,6 +467,7 @@ function main() {
         moveSpeed = Math.max(MOVE_SPEED_MIN, Math.min(MOVE_SPEED_MAX, moveSpeed - delta * 0.02));
         updateControls();
     }, { passive: false });
+    // Tangani sensitivitas pandang serta tombol gerak kamera.
     window.addEventListener("keydown", event => {
         const key = event.key.toLowerCase();
         if (document.pointerLockElement !== CANVAS) return;
@@ -455,16 +491,19 @@ function main() {
         event.preventDefault();
         pressedKeys.add(key);
     });
+    // Lepaskan tombol gerak saat tombol dilepas atau jendela kehilangan fokus.
     window.addEventListener("keyup", event => pressedKeys.delete(event.key.toLowerCase()));
     window.addEventListener("blur", () => pressedKeys.clear());
+    // Sesuaikan canvas dan proyeksi jika ukuran jendela berubah.
     window.onresize = () => {
         CANVAS.width = innerWidth; CANVAS.height = innerHeight;
         GL.viewport(0, 0, CANVAS.width, CANVAS.height);
         updateProjection();
     }; 
 
+    // Buat Mouthe, terapkan skala dan arah hadap, lalu tempatkan kakinya di tanah.
     const mouthe = new Mouthe(GL, SHADER_PROGRAM, locations);
-    mouthe.setup();                   
+    mouthe.setup();
     for (const scale of [LIBS.scaleX, LIBS.scaleY, LIBS.scaleZ]) {
         scale(mouthe.POSITION_MATRIX, CHARACTER_SCALE.mouthe);
     }
@@ -476,11 +515,13 @@ function main() {
         MOUTHE.z
     );
 
-    const environment = new Environment(GL, SHADER_PROGRAM, locations);   
+    // Buat lingkungan dan ubin tambahan yang memakai gambar transparan.
+    const environment = new Environment(GL, SHADER_PROGRAM, locations);
     environment.setup();
     const tile = new Tile(GL, SHADER_PROGRAM, locations, TILE_CONFIG);
     tile.setup();
     validateCharacterPositions();
+    // Samakan sakelar atap pada UI dengan kondisi atap di lingkungan.
     const roofToggle = document.getElementById("toggleRoof");
     roofToggle.checked = environment.roof.visible;
     roofToggle.addEventListener("change", () => {
@@ -494,6 +535,7 @@ function main() {
         event.preventDefault();
     });
 
+    // Buat Gundog, atur ukuran serta posisi, lalu hubungkan kontrol lampunya.
     const gundog = new Gundog(GL, SHADER_PROGRAM, locations);
     gundog.setup();
     LIBS.scaleX(gundog.POSITION_MATRIX, CHARACTER_SCALE.gundog);
@@ -519,11 +561,13 @@ function main() {
         event.preventDefault();
     });
 
+    // Buat Knifo pada posisi, arah, dan ukuran awalnya.
     const knifo = new Knifo(GL, SHADER_PROGRAM, locations);
     knifo.setup();
     knifo.setWorld(KNIFO.x, environment.floorY - Knifo.FOOT_Y, KNIFO.z, CHARACTER_YAWS.knifo, CHARACTER_SCALE.knifo);
     knifo.animationOn = true;
 
+    // Hubungkan tombol Q, R, dan T dengan animasi perubahan skala karakter.
     const scaleToggles = [
         {
             key: "q",
@@ -550,7 +594,13 @@ function main() {
             footY: Knifo.FOOT_Y
         }
     ];
+
+    //
+    //scaling
+    //
+    
     const SCALE_ANIMATION_DURATION = 0.35;
+    // Ubah skala matriks tanpa menggeser titik kaki karakter dari tanah.
     const setCharacterScale = (toggle, nextScale) => {
         const ratio = nextScale / toggle.currentScale;
         for (let column = 0; column < 3; column++) {
@@ -564,6 +614,7 @@ function main() {
             followedCharacter.lastPosition[1] = toggle.matrix[13];
         }
     };
+    // Mulai animasi menuju skala normal atau 1,5 kali skala normal.
     const setScaleActive = (toggle, active) => {
         toggle.startScale = toggle.currentScale;
         toggle.targetScale = toggle.baseScale * (active ? 1.5 : 1);
@@ -571,6 +622,7 @@ function main() {
         toggle.active = active;
         toggle.checkbox.checked = active;
     };
+    // Atur data awal skala dan hubungkan setiap kotak centang.
     scaleToggles.forEach(toggle => {
         toggle.currentScale = toggle.baseScale;
         toggle.startScale = toggle.baseScale;
@@ -584,6 +636,7 @@ function main() {
             toggle.checkbox.blur();
         });
     });
+    // Tombol pintas mengaktifkan atau menonaktifkan perubahan skala.
     window.addEventListener("keydown", event => {
         const toggle = scaleToggles.find(item => item.key === event.key.toLowerCase());
         if (!toggle || event.repeat) return;
@@ -593,7 +646,7 @@ function main() {
 
 
 
-    // Toggle animasi karakter
+    // Hubungkan kotak centang dan tombol 1-3 dengan animasi tiap karakter.
     const animationToggles = [
         { key: "1", character: mouthe, checkbox: document.getElementById("toggleMouthe") },
         { key: "2", character: gundog, checkbox: document.getElementById("toggleGundog") },
@@ -613,13 +666,14 @@ function main() {
         toggle.character.animationOn = toggle.checkbox.checked;
     });
 
-    // Toggle ikuti gerakan karakter
+    // Pilih karakter yang gerakannya akan diikuti oleh posisi kamera.
     const followToggles = [
         { name: "mouthe", getMatrix: () => mouthe.POSITION_MATRIX, checkbox: document.getElementById("followMouthe") },
         { name: "gundog", getMatrix: () => gundog.POSITION_MATRIX, checkbox: document.getElementById("followGundog") },
         { name: "knifo", getMatrix: () => knifo.MOVE_MATRIX, checkbox: document.getElementById("followKnifo") }
     ];
     let followedCharacter = null;
+    // Perbarui pilihan UI dan catat posisi awal karakter yang diikuti.
     const setFollowTarget = target => {
         followToggles.forEach(toggle => {
             toggle.checkbox.checked = toggle === target;
@@ -630,6 +684,7 @@ function main() {
             target.lastPosition = [matrix[12], matrix[13], matrix[14]];
         }
     };
+    // Geser kamera sebesar perpindahan karakter sejak pemeriksaan terakhir.
     followToggles.forEach(toggle => {
         toggle.checkbox.addEventListener("change", () => {
             setFollowTarget(toggle.checkbox.checked ? toggle : null);
@@ -645,11 +700,12 @@ function main() {
         followedCharacter.lastPosition = [matrix[12], matrix[13], matrix[14]];
     };
 
-    // Toggle gerak maju
+    // Ubah sudut hadap menjadi arah perpindahan pada sumbu X dan Z.
     const forwardFromYaw = (yaw, localDirection = 1) => ({
         x: localDirection * Math.sin(yaw),
         z: localDirection * Math.cos(yaw)
     });
+    // Atur tombol 4-6 sebagai pengendali gerak maju setiap karakter.
     const movementToggles = [
         {
             key: "4",
@@ -673,6 +729,7 @@ function main() {
             localDirection: 1
         }
     ];
+    // Mulai atau hentikan gerakan, kecuali karakter sedang mengorbit.
     const setMovementActive = (toggle, active) => {
         if (active && orbitCharacters.some(item => item.name === toggle.name && item.orbit)) {
             toggle.checkbox.checked = false;
@@ -693,6 +750,7 @@ function main() {
         }
         toggle.checkbox.checked = toggle.active;
     };
+    // Catat posisi awal dan hubungkan kotak centang gerakan.
     movementToggles.forEach(toggle => {
         toggle.startX = toggle.matrix[12];
         toggle.startZ = toggle.matrix[14];
@@ -704,6 +762,7 @@ function main() {
             toggle.checkbox.blur();
         });
     });
+    // Tombol 4-6 mengaktifkan atau menghentikan gerakan maju.
     window.addEventListener("keydown", event => {
         const toggle = movementToggles.find(item => item.key === event.key);
         if (!toggle || event.repeat) return;
@@ -711,11 +770,13 @@ function main() {
         event.preventDefault();
     });
 
+    // Hubungkan tombol 8-0 dengan pengaturan putaran karakter.
     const rotationToggles = [
         { key: "8", name: "mouthe", matrix: mouthe.POSITION_MATRIX, checkbox: document.getElementById("rotateMouthe") },
         { key: "9", name: "gundog", matrix: gundog.POSITION_MATRIX, checkbox: document.getElementById("rotateGundog") },
         { key: "0", name: "knifo", matrix: knifo.MOVE_MATRIX, checkbox: document.getElementById("rotateKnifo") }
     ];
+    // Tolak putaran saat orbit aktif, lalu siapkan putaran sesuai konfigurasi.
     const setRotationActive = (toggle, active) => {
         if (active && orbitCharacters.some(item => item.name === toggle.name && item.orbit)) {
             toggle.checkbox.checked = false;
@@ -729,6 +790,7 @@ function main() {
         toggle.active = active && rotation.angle > 0;
         toggle.checkbox.checked = toggle.active;
     };
+    // Atur status awal kontrol putaran dan hubungkan perubahan kotak centang.
     rotationToggles.forEach(toggle => {
         toggle.angle = 0;
         toggle.active = false;
@@ -738,6 +800,7 @@ function main() {
             toggle.checkbox.blur();
         });
     });
+    // Tombol 8-0 mengaktifkan atau menghentikan putaran karakter.
     window.addEventListener("keydown", event => {
         const toggle = rotationToggles.find(item => item.key === event.key);
         if (!toggle || event.repeat) return;
@@ -745,6 +808,7 @@ function main() {
         event.preventDefault();
     });
 
+    // Simpan kolom UI dan karakter untuk pengaturan orbit masing-masing.
     const orbitCharacters = [
         {
             name: "mouthe", character: mouthe, matrix: mouthe.POSITION_MATRIX,
@@ -772,6 +836,7 @@ function main() {
         }
     ];
     const ORBIT_SPEED = Math.PI / 2;
+    // Mulai atau hentikan orbit; saat mulai, validasi pusat dan jari-jari lingkaran.
     const setOrbitActive = (toggle, active) => {
         if (!active) {
             if (toggle.orbit) {
@@ -827,6 +892,7 @@ function main() {
         toggle.status.textContent = "Orbit is running. Stop it to change the settings.";
         toggle.checkbox.checked = true;
     };
+    // Atur status awal orbit dan cegah tombol di dalam kontrol memicu pintasan global.
     orbitCharacters.forEach(toggle => {
         toggle.orbit = null;
         toggle.checkbox.checked = false;
@@ -838,17 +904,22 @@ function main() {
             .forEach(control => control.addEventListener("keydown", event => event.stopPropagation()));
     });
 
+    // Catat waktu awal agar animasi dapat menghitung durasi setiap frame.
     const startTime = performance.now();
     let previousFrameTime = startTime;
+    // Perbarui gerakan, kamera, animasi, dan gambar scene pada setiap frame.
     const animate = () => {
         const now = performance.now();
+        // Batasi jeda frame agar perubahan tab tidak membuat gerakan melonjak.
         const deltaTime = Math.min((now - previousFrameTime) / 1000, 0.1);
         previousFrameTime = now;
+        // Simpan posisi kamera berkala supaya perubahan terakhir tidak hilang.
         if (now - lastCameraSave >= 250) {
             saveCameraState();
             lastCameraSave = now;
         }
 
+        // Hitung gerakan maju, mundur, dan menyamping dari tombol yang ditekan.
         const forward = Number(pressedKeys.has("w")) - Number(pressedKeys.has("s"));
         const strafe = Number(pressedKeys.has("d")) - Number(pressedKeys.has("a"));
         const moveLength = Math.hypot(forward, strafe) || 1;
@@ -859,6 +930,7 @@ function main() {
         camera.y += (Number(pressedKeys.has(" ")) - Number(pressedKeys.has("shift")))
             * moveSpeed * deltaTime;
 
+        // Animasikan perubahan skala dengan transisi halus.
         scaleToggles.forEach(toggle => {
             if (toggle.currentScale === toggle.targetScale) return;
             toggle.elapsed = Math.min(SCALE_ANIMATION_DURATION, toggle.elapsed + deltaTime);
@@ -870,6 +942,9 @@ function main() {
             setCharacterScale(toggle, nextScale);
         });
 
+        //
+        // Gerakkan karakter aktif sepanjang arah hadapnya sampai jarak yang ditentukan.
+        //
         movementToggles.forEach(toggle => {
             if (!toggle.active) return;
             const forward = CHARACTER_MOTION[toggle.name].forward;
@@ -886,6 +961,7 @@ function main() {
             }
         });
 
+        // Putar karakter aktif sedikit demi sedikit hingga sudut target tercapai.
         rotationToggles.forEach(toggle => {
             if (!toggle.active) return;
             const rotation = CHARACTER_MOTION[toggle.name].rotation;
@@ -898,6 +974,7 @@ function main() {
             }
         });
 
+        // Gerakkan karakter yang orbit mengelilingi pusat dan arahkan ke lintasannya.
         orbitCharacters.forEach(toggle => {
             const orbit = toggle.orbit;
             if (!orbit) return;
@@ -915,15 +992,18 @@ function main() {
             LIBS.set_position(toggle.matrix, x, toggle.matrix[13], z);
         });
 
+        // Perbarui pose karakter dan geser kamera jika sedang mengikuti karakter.
         const elapsedSeconds = (now - startTime) / 1000;
-        gundog.animasi(now * ANIMATION_SPEED.gundog);                   
+        gundog.animasi(now * ANIMATION_SPEED.gundog);
         mouthe.animasi(elapsedSeconds * ANIMATION_SPEED.mouthe);
         knifo.animasi(elapsedSeconds * ANIMATION_SPEED.knifo);
         followCharacterMovement();
 
+        // Bersihkan frame sebelumnya sebelum menggambar ulang seluruh scene.
         GL.clearColor(1, 1, 1, 1);
         GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT);
 
+        // Bentuk matriks pandang dari arah dan posisi kamera saat ini.
         const VIEWMATRIX = LIBS.get_I4();
         LIBS.rotateY(VIEWMATRIX, -camera.yaw);
         LIBS.rotateX(VIEWMATRIX, -camera.pitch);
@@ -932,13 +1012,15 @@ function main() {
         VIEWMATRIX[14] = -(VIEWMATRIX[2] * camera.x + VIEWMATRIX[6] * camera.y + VIEWMATRIX[10] * camera.z);
         GL.uniformMatrix4fv(_Vmatrix, false, VIEWMATRIX);
 
+        // Gambar Gundog lebih dulu, lalu perbarui posisi dan status lampu larasnya.
         gundog.render(LIBS.get_I4());
         const barrelLight = gundog.getBarrelLight();
         GL.uniform3fv(locations.redLightPosition, barrelLight.position);
         GL.uniform3fv(locations.redLightDirection, barrelLight.direction);
         GL.uniform1f(locations.redLightEnabled, gundog.lightOn ? 1 : 0);
 
-        mouthe.render(LIBS.get_I4());                              
+        // Gambar karakter lain, environment, ubin, lalu jadwalkan frame berikutnya.
+        mouthe.render(LIBS.get_I4());
         environment.render(LIBS.get_I4());
         tile.render(LIBS.get_I4());
 
@@ -946,6 +1028,8 @@ function main() {
 
         window.requestAnimationFrame(animate);
     };
+    // Mulai loop render.
     animate();
 }
+// Jalankan inisialisasi setelah seluruh elemen halaman selesai dimuat.
 window.addEventListener("load", main);
