@@ -140,13 +140,17 @@ function createCylinder(radius, height, axis = "y", segments = 12) {
 //
 // cone lampu/laser
 //
-function createSpotlightBeam(length, radius, segments = 24) {
+function createSpotlightBeam(length, radiusX, radiusY, segments = 24) {
     const vertices = [], faces = [];
     vertices.push(0, 0, 0);
-    //lingkaran alas
+    // Penampang elips memenuhi x²/a² + y²/b² = z²/c².
     for (let segment = 0; segment < segments; segment++) {
         const angle = 2 * Math.PI * segment / segments;
-        vertices.push(radius * Math.cos(angle), radius * Math.sin(angle), -length);
+        vertices.push(
+            radiusX * Math.cos(angle),
+            radiusY * Math.sin(angle),
+            -length
+        );
     }
     //segi3 dari titik2 lingkaran ke tipun
     for (let segment = 0; segment < segments; segment++) {
@@ -366,7 +370,7 @@ export class Character extends MyObject {
         barrel.childs.push(this.barrelEnd);
 
         //light beam/laser
-        this.lightBeam = this.addMesh(createSpotlightBeam(9, 1.8), [1, 0.015, 0.01], 0, 0, -0.525, false);
+        this.lightBeam = this.addMesh(createSpotlightBeam(9, 1.8, 1.1), [1, 0.015, 0.01], 0, 0, -0.525, false);
         this.lightBeam.hatching = 5;
         this.lightBeam.transparent = true;
         this.lightBeam.visible = this.lightOn;
