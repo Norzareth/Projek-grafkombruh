@@ -126,12 +126,17 @@ export const trapezoidBox = (radiusTop, radiusBottom, height, depthScale) =>
 // cone
 export function cone(radius, height, segments) {
     const vertices = [0, height / 2, 0], indices = [];            
+    const pointOnCone = (u, v) => [
+        radius * v * Math.cos(u),
+        -height / 2 + height * v,
+        radius * v * Math.sin(u)
+    ];
     for (let i = 0; i <= segments; i++) {
         const angle = i * 2 * Math.PI / segments;
-        vertices.push(radius * Math.cos(angle), height / 2, radius * Math.sin(angle));
+        vertices.push(...pointOnCone(angle, 1));
     }
     const tip = vertices.length / 3;
-    vertices.push(0, -height / 2, 0);
+    vertices.push(...pointOnCone(0, 0));
     for (let i = 1; i <= segments; i++) {
         indices.push(tip, i, i + 1);                              
         indices.push(0, i + 1, i);                                
